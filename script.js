@@ -132,21 +132,31 @@ function parseData(valor) {
 
   const texto = String(valor).trim();
 
-  let m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!m) return null;
+  const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!match) return null;
 
-  let p1 = Number(m[1]);
-  let p2 = Number(m[2]);
-  let ano = Number(m[3]);
+  const parte1 = Number(match[1]);
+  const parte2 = Number(match[2]);
+  let ano = Number(match[3]);
 
   if (ano < 100) ano += 2000;
 
   let mes;
   let dia;
 
-  // planilha informada como MÊS/DIA/ANO
-  mes = p1;
-  dia = p2;
+  // A planilha GERAL está vindo no padrão DIA/MÊS/ANO pelo CSV publicado.
+  // Exemplo: 15/01/2026 = 15 de janeiro.
+  if (parte1 > 12) {
+    dia = parte1;
+    mes = parte2;
+  } else if (parte2 > 12) {
+    mes = parte1;
+    dia = parte2;
+  } else {
+    // Quando é ambíguo, segue a orientação original: MÊS/DIA/ANO.
+    mes = parte1;
+    dia = parte2;
+  }
 
   const data = new Date(ano, mes - 1, dia);
 
@@ -253,9 +263,14 @@ function processarGeral(linhas) {
 
       if (!data) return null;
 
+      const ano = data.getFullYear();
+      const mesNumero = data.getMonth() + 1;
+
+      if (ano !== CONFIG.anoBase) return null;
+
       return {
         data,
-        mes: chaveMes(data),
+        mes: `${ano}-${String(mesNumero).padStart(2, '0')}`,
         bairro: String(linha[colBairro] || '').trim(),
         logradouro: String(linha[colLogradouro] || '').trim(),
         area: parseNumero(linha[colArea]),
