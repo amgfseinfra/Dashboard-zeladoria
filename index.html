@@ -1,135 +1,80 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Dashboard Zeladoria Urbana</title>
-
   <link rel="stylesheet" href="style.css" />
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="script.js" defer></script>
 </head>
-
 <body>
-
   <header class="topbar">
     <div>
       <p class="eyebrow">Projeto Zeladoria</p>
-
       <h1>Dashboard de Produção e Prazos</h1>
-
-      <p class="subtitle">
-        Zeladoria urbana de Uberlândia: tapa-buraco, sinalização e serviços urbanos
-      </p>
+      <p class="subtitle">Zeladoria urbana de Uberlândia: tapa-buraco, sinalização e serviços urbanos</p>
     </div>
 
     <div class="update-box">
       <span>Atualização automática via Google Sheets</span>
-
-      <strong id="lastUpdate">
-        Carregando...
-      </strong>
+      <strong id="lastUpdate">Aguardando leitura...</strong>
     </div>
   </header>
 
   <main class="container">
-
     <nav class="tabs card" aria-label="Módulos do dashboard">
-
-      <button class="tab active" data-tab="tapa">
-        SEINFRA | Tapa-buraco
-      </button>
-
-      <button class="tab" data-tab="settran">
-        SETTRAN | Sinalização
-      </button>
-
-      <button class="tab" data-tab="sesurb">
-        SESURB | Serviços Urbanos
-      </button>
-
+      <button class="tab active" type="button" data-tab="tapa">SEINFRA | Tapa-buraco</button>
+      <button class="tab" type="button" data-tab="settran">SETTRAN | Sinalização</button>
+      <button class="tab" type="button" data-tab="sesurb">SESURB | Serviços Urbanos</button>
     </nav>
 
-    <section id="statusBox" class="status card">
-      Carregando dados...
-    </section>
+    <section id="statusBox" class="status card">Carregando dados...</section>
 
     <section id="panel-tapa" class="panel active">
-
       <section class="filters card">
-
-        <label>
+        <label for="tapaMonth">
           Mês de referência
-
           <select id="tapaMonth"></select>
         </label>
-
-        <button id="refreshTapa">
-          Atualizar leitura
-        </button>
-
+        <button id="refreshTapa" type="button">Atualizar leitura</button>
       </section>
 
       <section class="kpi-grid three">
-
         <article class="card kpi">
           <span>Tonelagem total</span>
-
           <strong id="tapaTon">-</strong>
-
           <small>TON TOTAL, aba RESUMO TON</small>
         </article>
 
         <article class="card kpi">
           <span>Área total</span>
-
           <strong id="tapaArea">-</strong>
-
           <small>ÁREA (m²) TOTAL, aba RESUMO TON</small>
         </article>
 
         <article class="card kpi">
           <span>Buracos tapados</span>
-
           <strong id="tapaBuracos">-</strong>
-
           <small>BURACO (QNT), aba RESUMO TON</small>
         </article>
-
       </section>
 
       <section class="chart-grid">
-
         <article class="card chart-card wide">
-
           <div class="card-title">
             <h2>Buracos tapados por dia</h2>
-
-            <p>
-              Quantidade de buracos tapados em cada dia do período selecionado.
-              Dias sem produção aparecem como zero.
-            </p>
+            <p>Quantidade de buracos tapados em cada dia do período selecionado. Dias sem produção aparecem como zero.</p>
           </div>
-
           <canvas id="chartTapaDiario"></canvas>
-
         </article>
-
       </section>
 
       <section class="chart-grid two-columns">
-
         <article class="card table-card">
-
           <div class="card-title">
             <h2>Ranking de vias</h2>
-
-            <p>
-              Vias com maior recorrência de tapa-buraco no período selecionado.
-            </p>
+            <p>Vias com maior recorrência de tapa-buraco no período selecionado.</p>
           </div>
 
           <table>
@@ -140,20 +85,14 @@
                 <th>Buracos</th>
               </tr>
             </thead>
-
             <tbody id="rankVias"></tbody>
           </table>
-
         </article>
 
         <article class="card table-card">
-
           <div class="card-title">
             <h2>Ranking de bairros</h2>
-
-            <p>
-              Bairros com maior recorrência de tapa-buraco no período selecionado.
-            </p>
+            <p>Bairros com maior recorrência de tapa-buraco no período selecionado.</p>
           </div>
 
           <table>
@@ -164,22 +103,25 @@
                 <th>Buracos</th>
               </tr>
             </thead>
-
             <tbody id="rankBairros"></tbody>
           </table>
-
         </article>
-
       </section>
-
     </section>
 
-    <section id="panel-settran" class="panel"></section>
+    <section id="panel-settran" class="panel">
+      <section class="placeholder card">
+        <h2>SETTRAN | Sinalização</h2>
+        <p>Módulo reservado para a próxima etapa.</p>
+      </section>
+    </section>
 
-    <section id="panel-sesurb" class="panel"></section>
-
+    <section id="panel-sesurb" class="panel">
+      <section class="placeholder card">
+        <h2>SESURB | Serviços Urbanos</h2>
+        <p>Módulo reservado para a próxima etapa.</p>
+      </section>
+    </section>
   </main>
-
 </body>
-
 </html>
