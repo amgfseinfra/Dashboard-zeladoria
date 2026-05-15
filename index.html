@@ -164,12 +164,91 @@
   </section>
 </section>
 
-    <section id="panel-sesurb" class="panel">
-      <section class="placeholder card">
-        <h2>SESURB | Serviços Urbanos</h2>
-        <p>Módulo reservado para a próxima etapa.</p>
-      </section>
-    </section>
+   <section id="panel-sesurb" class="panel">
+  <section class="filters card">
+    <label for="sesurbService">
+      Serviço
+      <select id="sesurbService"></select>
+    </label>
+
+    <label for="sesurbMonth">
+      Mês de referência
+      <select id="sesurbMonth"></select>
+    </label>
+
+    <button id="refreshSesurb" type="button">Atualizar leitura</button>
+  </section>
+
+  <section class="kpi-grid two">
+    <article class="card kpi">
+      <span>Produção total do serviço</span>
+      <strong id="sesurbTotal">-</strong>
+      <small id="sesurbUnidade">Período selecionado</small>
+    </article>
+
+    <article class="card kpi">
+      <span>Prazo médio</span>
+      <strong id="sesurbPrazoMedio">-</strong>
+      <small>Considera serviços com prazo calculável</small>
+    </article>
+  </section>
+
+  <section class="chart-grid two-columns">
+    <article class="card chart-card">
+      <div class="card-title">
+        <h2>Produção diária</h2>
+        <p>Produção por dia no período selecionado.</p>
+      </div>
+      <canvas id="chartSesurbDiario"></canvas>
+    </article>
+
+    <article class="card chart-card">
+      <div class="card-title">
+        <h2>Distribuição dos prazos</h2>
+        <p>Faixas de prazo em dias.</p>
+      </div>
+      <canvas id="chartSesurbPrazos"></canvas>
+    </article>
+  </section>
+
+  <section class="chart-grid two-columns">
+    <article class="card table-card">
+      <div class="card-title">
+        <h2>Ranking de vias/localizações</h2>
+        <p>Vias ou locais mais atendidos no serviço selecionado.</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Via/Local</th>
+            <th>Atendimentos</th>
+          </tr>
+        </thead>
+        <tbody id="rankSesurbVias"></tbody>
+      </table>
+    </article>
+
+    <article class="card table-card">
+      <div class="card-title">
+        <h2>Ranking de bairros</h2>
+        <p>Bairros mais atendidos no serviço selecionado.</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Bairro</th>
+            <th>Atendimentos</th>
+          </tr>
+        </thead>
+        <tbody id="rankSesurbBairros"></tbody>
+      </table>
+    </article>
+  </section>
+</section>
   </main>
 </body>
 </html>
