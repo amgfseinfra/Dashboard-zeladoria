@@ -804,54 +804,51 @@ function renderSettran() {
   renderSettranTotal(mesSelecionado);
   renderGraficoSettran(mesSelecionado);
   renderNecessidadeSettran();
-}const SESURB_SERVICOS = {
+}
+const SESURB_SERVICOS = {
 
   capinaManual: {
     nome: 'Capina manual + roçagem mecanizada',
     unidade: 'm²',
-    campoData: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
-    campoInicio: ['INÍCIO', 'INICIO'],
-    campoFim: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
-    campoVia: ['LOGRADOURO'],
-    campoBairro: ['BAIRRO'],
-    campoMedida: ['MEDIDA TOTAL'],
-    urlKey: 'capinaManual'
+    colData: 8,
+    colInicio: 6,
+    colFim: 8,
+    colVia: 3,
+    colBairro: 2,
+    colMedida: 14
   },
 
   capinaEletrica: {
     nome: 'Capina elétrica',
     unidade: 'm',
-    campoData: ['DATA EXECUÇÃO', 'DATA EXECUCAO', 'DATA'],
-    campoInicio: null,
-    campoFim: null,
-    campoVia: ['LOCAL', 'AVENIDAS', 'RUAS'],
-    campoBairro: ['BAIRRO'],
-    campoMedida: ['MEDIDA TOTAL'],
-    urlKey: 'capinaEletrica'
+    colData: 2,
+    colInicio: -1,
+    colFim: -1,
+    colVia: 4,
+    colBairro: 3,
+    colMedida: 10
   },
 
   drenagem: {
     nome: 'Limpeza de drenagem',
     unidade: 'BL',
-    campoData: ['DATA'],
-    campoInicio: null,
-    campoFim: null,
-    campoVia: ['LOCALIZAÇÃO', 'LOCALIZACAO'],
-    campoBairro: ['BAIRRO'],
-    campoMedida: ['QUANTIDADES', 'QUANTIDADE'],
-    urlKey: 'drenagem'
+    colData: 0,
+    colInicio: -1,
+    colFim: -1,
+    colVia: 4,
+    colBairro: 3,
+    colMedida: 9
   },
 
   sarjeta: {
     nome: 'Pintura de sarjeta',
     unidade: 'm',
-    campoData: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
-    campoInicio: ['INICIO', 'INÍCIO'],
-    campoFim: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
-    campoVia: ['LOGRADOURO'],
-    campoBairro: ['BAIRRO'],
-    campoMedida: ['MEDIDA'],
-    urlKey: 'sarjeta'
+    colData: 7,
+    colInicio: 6,
+    colFim: 7,
+    colVia: 3,
+    colBairro: 2,
+    colMedida: 9
   }
 };
 
@@ -874,7 +871,6 @@ function parseDataSesurb(valor) {
     numero > 20000 &&
     numero < 70000
   ) {
-
     const base = new Date(1899, 11, 30);
 
     base.setDate(
@@ -888,7 +884,29 @@ function parseDataSesurb(valor) {
     );
   }
 
-  return parseData(valor);
+  const texto = String(valor).trim();
+
+  const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+
+  if (!match) return null;
+
+  const dia = Number(match[1]);
+  const mes = Number(match[2]);
+  let ano = Number(match[3]);
+
+  if (ano < 100) ano += 2000;
+
+  const data = new Date(ano, mes - 1, dia);
+
+  if (
+    data.getFullYear() !== ano ||
+    data.getMonth() !== mes - 1 ||
+    data.getDate() !== dia
+  ) {
+    return null;
+  }
+
+  return data;
 }
 
 function prazoInclusivo(inicio, fim) {
@@ -934,82 +952,31 @@ function processarServicoSesurb(
   chaveServico
 ) {
 
-  const cfg =
-    SESURB_SERVICOS[chaveServico];
+  const cfg = SESURB_SERVICOS[chaveServico];
 
-  const idxCabecalho = 1;
-
-  const cabecalho =
-    linhas[idxCabecalho] || [];
-
-  const dados =
-    linhas.slice(idxCabecalho + 1);
-
-  const colData = indiceSesurb(
-    cabecalho,
-    cfg.campoData,
-    0
-  );
-
-  const colInicio = indiceSesurb(
-    cabecalho,
-    cfg.campoInicio,
-    -1
-  );
-
-  const colFim = indiceSesurb(
-    cabecalho,
-    cfg.campoFim,
-    -1
-  );
-
-  const colVia = indiceSesurb(
-    cabecalho,
-    cfg.campoVia,
-    0
-  );
-
-  const colBairro = indiceSesurb(
-    cabecalho,
-    cfg.campoBairro,
-    -1
-  );
-
-  const colMedida = indiceSesurb(
-    cabecalho,
-    cfg.campoMedida,
-    -1
-  );
+  const dados = linhas.slice(2);
 
   return dados
     .map(linha => {
 
-      const data =
-        parseDataSesurb(linha[colData]);
+      const data = parseDataSesurb(linha[cfg.colData]);
 
       if (!data) return null;
 
-      if (
-        data.getFullYear() !== CONFIG.anoBase
-      ) {
+      if (data.getFullYear() !== CONFIG.anoBase) {
         return null;
       }
 
-      let prazo = null;
+      let prazo = 1;
 
       if (
-        colInicio >= 0 &&
-        colFim >= 0
+        cfg.colInicio >= 0 &&
+        cfg.colFim >= 0
       ) {
-
         prazo = prazoInclusivo(
-          parseDataSesurb(linha[colInicio]),
-          parseDataSesurb(linha[colFim])
+          parseDataSesurb(linha[cfg.colInicio]),
+          parseDataSesurb(linha[cfg.colFim])
         );
-
-      } else {
-
-        prazo = 1;
       }
 
       return {
@@ -1018,22 +985,16 @@ function processarServicoSesurb(
         mes: chaveMes(data),
 
         via: String(
-          linha[colVia] || ''
+          linha[cfg.colVia] || ''
         ).trim(),
 
-        bairro:
-          colBairro >= 0
-            ? String(
-                linha[colBairro] || ''
-              ).trim()
-            : '',
+        bairro: String(
+          linha[cfg.colBairro] || ''
+        ).trim(),
 
-        quantidade:
-          colMedida >= 0
-            ? parseNumero(
-                linha[colMedida]
-              )
-            : 0,
+        quantidade: parseNumero(
+          linha[cfg.colMedida]
+        ),
 
         prazo
       };
@@ -1041,7 +1002,6 @@ function processarServicoSesurb(
     })
     .filter(Boolean);
 }
-
 function preencherSelectSesurbServico() {
 
   const select =
