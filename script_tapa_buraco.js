@@ -5,7 +5,11 @@ const CONFIG = {
   urls: {
     resumoTon: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4LFVuZ0zcS7_0vZYDu9k4UN2TRQ3e5wDYAlxyBnLTXri8YV-9LBYugIcTgbeZDxc6UerJK1f7OeC8/pub?gid=0&single=true&output=csv',
     geral: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4LFVuZ0zcS7_0vZYDu9k4UN2TRQ3e5wDYAlxyBnLTXri8YV-9LBYugIcTgbeZDxc6UerJK1f7OeC8/pub?gid=2071576844&single=true&output=csv',
-    settran: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRQfc4beWDtxWWleEmmhZPCHyTP8X6hLmZSCuDJgnK8UjU3roulJuBiU4zDYIkQxx48DUd_qpKYJ3xc/pub?gid=0&single=true&output=csv'
+    settran: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRQfc4beWDtxWWleEmmhZPCHyTP8X6hLmZSCuDJgnK8UjU3roulJuBiU4zDYIkQxx48DUd_qpKYJ3xc/pub?gid=0&single=true&output=csv',
+    capinaManual: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpb_8JzPlZS29vGPlq-h0Xq8YY_5bLQBeVQRE23PhIU-i_tQJUT3JSy5ibBi_yzMHRf9VZf5Q43k6V/pub?gid=0&single=true&output=csv',
+    capinaEletrica: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpb_8JzPlZS29vGPlq-h0Xq8YY_5bLQBeVQRE23PhIU-i_tQJUT3JSy5ibBi_yzMHRf9VZf5Q43k6V/pub?gid=1272558273&single=true&output=csv',
+    drenagem: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpb_8JzPlZS29vGPlq-h0Xq8YY_5bLQBeVQRE23PhIU-i_tQJUT3JSy5ibBi_yzMHRf9VZf5Q43k6V/pub?gid=1279120905&single=true&output=csv',
+    sarjeta: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpb_8JzPlZS29vGPlq-h0Xq8YY_5bLQBeVQRE23PhIU-i_tQJUT3JSy5ibBi_yzMHRf9VZf5Q43k6V/pub?gid=281020591&single=true&output=csv'
   }
 };
 
@@ -13,6 +17,7 @@ const state = {
   resumo: [],
   geral: [],
   settran: [],
+  sesurb: {},
   charts: {}
 };
 
@@ -232,7 +237,6 @@ function processarResumo(linhas) {
     })
     .filter(Boolean);
 }
-
 function processarGeral(linhas) {
   const idx = acharCabecalho(linhas, ['DATA', 'BAIRRO', 'LOGADOURO']);
   const cabecalho = linhas[idx];
@@ -449,18 +453,16 @@ function renderTudo() {
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-
   renderRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
   renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
-}
-
-function parseDataSettran(valor) {
+}function parseDataSettran(valor) {
   const texto = normalizarTexto(valor).replace(/\s/g, '');
   const match = texto.match(/^(\d{1,2})\/?([A-Z]{3})$/);
 
   if (!match) return null;
 
   const dia = Number(match[1]);
+
   const mapaMeses = {
     JAN: 0,
     FEV: 1,
@@ -496,19 +498,31 @@ function processarSettran(linhas) {
   const registros = [];
 
   for (let i = 0; i < linhas.length; i++) {
+
     const linhaDatas = linhas[i];
     const datasEncontradas = [];
 
     linhaDatas.forEach((celula, coluna) => {
       const data = parseDataSettran(celula);
-      if (data) datasEncontradas.push({ coluna, data });
+
+      if (data) {
+        datasEncontradas.push({
+          coluna,
+          data
+        });
+      }
     });
 
     if (!datasEncontradas.length) continue;
 
     let linhaProducao = null;
 
-    for (let j = i + 1; j <= Math.min(i + 3, linhas.length - 1); j++) {
+    for (
+      let j = i + 1;
+      j <= Math.min(i + 3, linhas.length - 1);
+      j++
+    ) {
+
       const preenchidos = datasEncontradas.filter(({ coluna }) => {
         return parseNumero(linhas[j][coluna]) > 0;
       }).length;
@@ -522,11 +536,13 @@ function processarSettran(linhas) {
     if (!linhaProducao) continue;
 
     datasEncontradas.forEach(({ coluna, data }) => {
+
       registros.push({
         data,
         mes: chaveMes(data),
         producao: parseNumero(linhaProducao[coluna])
       });
+
     });
   }
 
@@ -534,73 +550,144 @@ function processarSettran(linhas) {
 }
 
 function preencherSelectSettran() {
+
   const select = $('settranMonth');
   if (!select) return;
 
-  const meses = Array.from(new Set(state.settran.map(item => item.mes))).sort();
+  const meses = Array.from(
+    new Set(state.settran.map(item => item.mes))
+  ).sort();
 
   select.innerHTML = '';
+
   select.add(new Option('Todos', 'todos'));
 
   meses.forEach(mes => {
+
     const numeroMes = Number(mes.split('-')[1]);
-    select.add(new Option(`${nomesMeses[numeroMes - 1]} de ${CONFIG.anoBase}`, mes));
+
+    select.add(
+      new Option(
+        `${nomesMeses[numeroMes - 1]} de ${CONFIG.anoBase}`,
+        mes
+      )
+    );
+
   });
 
   select.value = 'todos';
 }
 
 function dadosSettranDoPeriodo(mesSelecionado) {
-  if (mesSelecionado === 'todos') return state.settran;
-  return state.settran.filter(item => item.mes === mesSelecionado);
+
+  if (mesSelecionado === 'todos') {
+    return state.settran;
+  }
+
+  return state.settran.filter(
+    item => item.mes === mesSelecionado
+  );
 }
 
 function totalSettranPeriodo(mesSelecionado) {
-  return dadosSettranDoPeriodo(mesSelecionado).reduce((soma, item) => soma + item.producao, 0);
+
+  return dadosSettranDoPeriodo(mesSelecionado)
+    .reduce((soma, item) => soma + item.producao, 0);
 }
 
 function renderSettranTotal(mesSelecionado) {
+
   const total = totalSettranPeriodo(mesSelecionado);
+
   const el = $('settranTotal');
-  if (el) el.textContent = `${formatNumber(total, 2)} m²`;
+
+  if (el) {
+    el.textContent = `${formatNumber(total, 2)} m²`;
+  }
 }
 
 function renderGraficoSettran(mesSelecionado) {
+
   const dados = dadosSettranDoPeriodo(mesSelecionado);
+
   const mapa = new Map();
 
   dados.forEach(item => {
-    mapa.set(chaveDia(item.data), (mapa.get(chaveDia(item.data)) || 0) + item.producao);
+
+    mapa.set(
+      chaveDia(item.data),
+      (mapa.get(chaveDia(item.data)) || 0) + item.producao
+    );
+
   });
 
   const labels = [];
   const valores = [];
 
   if (mesSelecionado === 'todos') {
-    const datas = dados.map(item => item.data).sort((a, b) => a - b);
+
+    const datas = dados
+      .map(item => item.data)
+      .sort((a, b) => a - b);
 
     if (datas.length) {
-      let dataAtual = new Date(datas[0].getFullYear(), datas[0].getMonth(), datas[0].getDate());
-      const dataFinal = new Date(datas[datas.length - 1].getFullYear(), datas[datas.length - 1].getMonth(), datas[datas.length - 1].getDate());
+
+      let dataAtual = new Date(
+        datas[0].getFullYear(),
+        datas[0].getMonth(),
+        datas[0].getDate()
+      );
+
+      const dataFinal = new Date(
+        datas[datas.length - 1].getFullYear(),
+        datas[datas.length - 1].getMonth(),
+        datas[datas.length - 1].getDate()
+      );
 
       while (dataAtual <= dataFinal) {
-        labels.push(`${String(dataAtual.getDate()).padStart(2, '0')}/${String(dataAtual.getMonth() + 1).padStart(2, '0')}`);
-        valores.push(mapa.get(chaveDia(dataAtual)) || 0);
-        dataAtual.setDate(dataAtual.getDate() + 1);
+
+        labels.push(
+          `${String(dataAtual.getDate()).padStart(2, '0')}/${String(dataAtual.getMonth() + 1).padStart(2, '0')}`
+        );
+
+        valores.push(
+          mapa.get(chaveDia(dataAtual)) || 0
+        );
+
+        dataAtual.setDate(
+          dataAtual.getDate() + 1
+        );
       }
     }
+
   } else {
-    const [ano, mes] = mesSelecionado.split('-').map(Number);
+
+    const [ano, mes] = mesSelecionado
+      .split('-')
+      .map(Number);
+
     const totalDias = diasNoMes(ano, mes);
 
     for (let dia = 1; dia <= totalDias; dia++) {
-      const data = new Date(ano, mes - 1, dia);
-      labels.push(String(dia).padStart(2, '0'));
-      valores.push(mapa.get(chaveDia(data)) || 0);
+
+      const data = new Date(
+        ano,
+        mes - 1,
+        dia
+      );
+
+      labels.push(
+        String(dia).padStart(2, '0')
+      );
+
+      valores.push(
+        mapa.get(chaveDia(data)) || 0
+      );
     }
   }
 
   const canvas = $('chartSettranDiario');
+
   if (!canvas) return;
 
   if (state.charts.settranDiario) {
@@ -609,8 +696,10 @@ function renderGraficoSettran(mesSelecionado) {
 
   state.charts.settranDiario = new Chart(canvas, {
     type: 'line',
+
     data: {
       labels,
+
       datasets: [{
         label: 'Produção diária de sinalização',
         data: valores,
@@ -619,13 +708,16 @@ function renderGraficoSettran(mesSelecionado) {
         pointRadius: 2
       }]
     },
+
     options: {
       responsive: true,
       maintainAspectRatio: false,
+
       scales: {
         y: {
           beginAtZero: true
         },
+
         x: {
           ticks: {
             autoSkip: true,
@@ -638,94 +730,979 @@ function renderGraficoSettran(mesSelecionado) {
 }
 
 function renderNecessidadeSettran() {
-  const km = parseNumero($('settranKm')?.value || 0);
-  const indice = parseNumero($('settranIndice')?.value || 1350);
-  const mesSelecionado = $('settranMonth')?.value || 'todos';
-  const producao = totalSettranPeriodo(mesSelecionado);
-  const necessidade = km * indice;
-  const diferenca = Math.max(0, necessidade - producao);
-  const equipes = diferenca > 0 ? Math.ceil(diferenca / 150) : 0;
 
-  const necessidadeEl = $('settranNecessidadeResultado');
-  const analiseEl = $('settranAnaliseEquipe');
+  const km = parseNumero(
+    $('settranKm')?.value || 0
+  );
+
+  const indice = parseNumero(
+    $('settranIndice')?.value || 1350
+  );
+
+  const mesSelecionado =
+    $('settranMonth')?.value || 'todos';
+
+  const producao =
+    totalSettranPeriodo(mesSelecionado);
+
+  const necessidade = km * indice;
+
+  const diferenca =
+    Math.max(0, necessidade - producao);
+
+  const equipes =
+    diferenca > 0
+      ? Math.ceil(diferenca / 150)
+      : 0;
+
+  const necessidadeEl =
+    $('settranNecessidadeResultado');
+
+  const analiseEl =
+    $('settranAnaliseEquipe');
 
   if (necessidadeEl) {
-    necessidadeEl.textContent = `${formatNumber(necessidade, 2)} m²`;
+
+    necessidadeEl.textContent =
+      `${formatNumber(necessidade, 2)} m²`;
   }
 
   if (analiseEl) {
+
     if (!km) {
-      analiseEl.textContent = 'Informe a quilometragem para analisar a equipe.';
-      analiseEl.className = 'analysis-note';
+
+      analiseEl.textContent =
+        'Informe a quilometragem para analisar a equipe.';
+
+      analiseEl.className =
+        'analysis-note';
+
     } else if (diferenca > 0) {
-      analiseEl.textContent = `Equipe subdimensionada. Déficit de ${formatNumber(diferenca, 2)} m². Aumentar ${equipes} equipe(s).`;
-      analiseEl.className = 'analysis-note alert';
+
+      analiseEl.textContent =
+        `Equipe subdimensionada. Déficit de ${formatNumber(diferenca, 2)} m². Aumentar ${equipes} equipe(s).`;
+
+      analiseEl.className =
+        'analysis-note alert';
+
     } else {
-      analiseEl.textContent = 'Produção compatível com a necessidade informada.';
-      analiseEl.className = 'analysis-note ok';
+
+      analiseEl.textContent =
+        'Produção compatível com a necessidade informada.';
+
+      analiseEl.className =
+        'analysis-note ok';
     }
   }
 }
 
 function renderSettran() {
-  const mesSelecionado = $('settranMonth')?.value || 'todos';
+
+  const mesSelecionado =
+    $('settranMonth')?.value || 'todos';
 
   renderSettranTotal(mesSelecionado);
   renderGraficoSettran(mesSelecionado);
   renderNecessidadeSettran();
+}const SESURB_SERVICOS = {
+
+  capinaManual: {
+    nome: 'Capina manual + roçagem mecanizada',
+    unidade: 'm²',
+    campoData: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
+    campoInicio: ['INÍCIO', 'INICIO'],
+    campoFim: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
+    campoVia: ['LOGRADOURO'],
+    campoBairro: ['BAIRRO'],
+    campoMedida: ['MEDIDA TOTAL'],
+    urlKey: 'capinaManual'
+  },
+
+  capinaEletrica: {
+    nome: 'Capina elétrica',
+    unidade: 'm',
+    campoData: ['DATA EXECUÇÃO', 'DATA EXECUCAO', 'DATA'],
+    campoInicio: null,
+    campoFim: null,
+    campoVia: ['LOCAL', 'AVENIDAS', 'RUAS'],
+    campoBairro: ['BAIRRO'],
+    campoMedida: ['MEDIDA TOTAL'],
+    urlKey: 'capinaEletrica'
+  },
+
+  drenagem: {
+    nome: 'Limpeza de drenagem',
+    unidade: 'BL',
+    campoData: ['DATA'],
+    campoInicio: null,
+    campoFim: null,
+    campoVia: ['LOCALIZAÇÃO', 'LOCALIZACAO'],
+    campoBairro: ['BAIRRO'],
+    campoMedida: ['QUANTIDADES', 'QUANTIDADE'],
+    urlKey: 'drenagem'
+  },
+
+  sarjeta: {
+    nome: 'Pintura de sarjeta',
+    unidade: 'm',
+    campoData: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
+    campoInicio: ['INICIO', 'INÍCIO'],
+    campoFim: ['DT. DA CONCLUSÃO', 'CONCLUSÃO', 'DT CONCLUSÃO'],
+    campoVia: ['LOGRADOURO'],
+    campoBairro: ['BAIRRO'],
+    campoMedida: ['MEDIDA'],
+    urlKey: 'sarjeta'
+  }
+};
+
+function parseDataSesurb(valor) {
+
+  if (
+    valor === null ||
+    valor === undefined ||
+    valor === ''
+  ) {
+    return null;
+  }
+
+  const numero = Number(
+    String(valor).replace(',', '.')
+  );
+
+  if (
+    Number.isFinite(numero) &&
+    numero > 20000 &&
+    numero < 70000
+  ) {
+
+    const base = new Date(1899, 11, 30);
+
+    base.setDate(
+      base.getDate() + Math.round(numero)
+    );
+
+    return new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      base.getDate()
+    );
+  }
+
+  return parseData(valor);
+}
+
+function prazoInclusivo(inicio, fim) {
+
+  if (!inicio || !fim || fim < inicio) {
+    return null;
+  }
+
+  return Math.max(
+    1,
+    Math.floor((fim - inicio) / 86400000) + 1
+  );
+}
+
+function indiceSesurb(
+  cabecalho,
+  nomes,
+  fallback = -1
+) {
+
+  if (!nomes) return -1;
+
+  const cab = cabecalho.map(normalizarTexto);
+
+  for (const nome of nomes) {
+
+    const alvo = normalizarTexto(nome);
+
+    const idx = cab.findIndex(c =>
+      c.includes(alvo)
+    );
+
+    if (idx >= 0) {
+      return idx;
+    }
+  }
+
+  return fallback;
+}
+
+function processarServicoSesurb(
+  linhas,
+  chaveServico
+) {
+
+  const cfg =
+    SESURB_SERVICOS[chaveServico];
+
+  const idxCabecalho = 1;
+
+  const cabecalho =
+    linhas[idxCabecalho] || [];
+
+  const dados =
+    linhas.slice(idxCabecalho + 1);
+
+  const colData = indiceSesurb(
+    cabecalho,
+    cfg.campoData,
+    0
+  );
+
+  const colInicio = indiceSesurb(
+    cabecalho,
+    cfg.campoInicio,
+    -1
+  );
+
+  const colFim = indiceSesurb(
+    cabecalho,
+    cfg.campoFim,
+    -1
+  );
+
+  const colVia = indiceSesurb(
+    cabecalho,
+    cfg.campoVia,
+    0
+  );
+
+  const colBairro = indiceSesurb(
+    cabecalho,
+    cfg.campoBairro,
+    -1
+  );
+
+  const colMedida = indiceSesurb(
+    cabecalho,
+    cfg.campoMedida,
+    -1
+  );
+
+  return dados
+    .map(linha => {
+
+      const data =
+        parseDataSesurb(linha[colData]);
+
+      if (!data) return null;
+
+      if (
+        data.getFullYear() !== CONFIG.anoBase
+      ) {
+        return null;
+      }
+
+      let prazo = null;
+
+      if (
+        colInicio >= 0 &&
+        colFim >= 0
+      ) {
+
+        prazo = prazoInclusivo(
+          parseDataSesurb(linha[colInicio]),
+          parseDataSesurb(linha[colFim])
+        );
+
+      } else {
+
+        prazo = 1;
+      }
+
+      return {
+        servico: chaveServico,
+        data,
+        mes: chaveMes(data),
+
+        via: String(
+          linha[colVia] || ''
+        ).trim(),
+
+        bairro:
+          colBairro >= 0
+            ? String(
+                linha[colBairro] || ''
+              ).trim()
+            : '',
+
+        quantidade:
+          colMedida >= 0
+            ? parseNumero(
+                linha[colMedida]
+              )
+            : 0,
+
+        prazo
+      };
+
+    })
+    .filter(Boolean);
+}
+
+function preencherSelectSesurbServico() {
+
+  const select =
+    $('sesurbService');
+
+  if (!select) return;
+
+  select.innerHTML = '';
+
+  Object.entries(
+    SESURB_SERVICOS
+  ).forEach(([chave, cfg]) => {
+
+    select.add(
+      new Option(cfg.nome, chave)
+    );
+
+  });
+
+  select.value = 'capinaManual';
+}
+
+function preencherSelectSesurbMeses() {
+
+  const select =
+    $('sesurbMonth');
+
+  if (!select) return;
+
+  const servico =
+    $('sesurbService')?.value ||
+    'capinaManual';
+
+  const registros =
+    state.sesurb?.[servico] || [];
+
+  const meses = Array.from(
+    new Set(
+      registros.map(item => item.mes)
+    )
+  ).sort();
+
+  select.innerHTML = '';
+
+  select.add(
+    new Option('Todos', 'todos')
+  );
+
+  meses.forEach(mes => {
+
+    const numeroMes =
+      Number(mes.split('-')[1]);
+
+    select.add(
+      new Option(
+        `${nomesMeses[numeroMes - 1]} de ${CONFIG.anoBase}`,
+        mes
+      )
+    );
+
+  });
+
+  select.value = 'todos';
+}
+
+function dadosSesurbPeriodo() {
+
+  const servico =
+    $('sesurbService')?.value ||
+    'capinaManual';
+
+  const mes =
+    $('sesurbMonth')?.value ||
+    'todos';
+
+  const registros =
+    state.sesurb?.[servico] || [];
+
+  if (mes === 'todos') {
+    return registros;
+  }
+
+  return registros.filter(
+    item => item.mes === mes
+  );
+}
+
+function renderSesurbTotal() {
+
+  const servico =
+    $('sesurbService')?.value ||
+    'capinaManual';
+
+  const cfg =
+    SESURB_SERVICOS[servico];
+
+  const total =
+    dadosSesurbPeriodo()
+      .reduce(
+        (soma, item) =>
+          soma + item.quantidade,
+        0
+      );
+
+  if ($('sesurbTotal')) {
+
+    $('sesurbTotal').textContent =
+      `${formatNumber(total, 2)} ${cfg.unidade}`;
+  }
+
+  if ($('sesurbUnidade')) {
+
+    $('sesurbUnidade').textContent =
+      `Unidade: ${cfg.unidade}`;
+  }
+}
+
+function renderSesurbPrazoMedio() {
+
+  const prazos =
+    dadosSesurbPeriodo()
+      .map(item => item.prazo)
+      .filter(
+        p =>
+          Number.isFinite(p) &&
+          p > 0
+      );
+
+  const media =
+    prazos.length
+      ? prazos.reduce(
+          (soma, p) => soma + p,
+          0
+        ) / prazos.length
+      : 0;
+
+  if ($('sesurbPrazoMedio')) {
+
+    $('sesurbPrazoMedio').textContent =
+      prazos.length
+        ? `${formatNumber(media, 1)} dias`
+        : '-';
+  }
+}
+
+function renderGraficoSesurbDiario() {
+
+  const dados =
+    dadosSesurbPeriodo();
+
+  const mapa = new Map();
+
+  dados.forEach(item => {
+
+    const chave =
+      chaveDia(item.data);
+
+    mapa.set(
+      chave,
+      (mapa.get(chave) || 0) +
+        item.quantidade
+    );
+
+  });
+
+  const labels = [];
+  const valores = [];
+
+  const mesSelecionado =
+    $('sesurbMonth')?.value ||
+    'todos';
+
+  if (mesSelecionado === 'todos') {
+
+    const datas =
+      dados
+        .map(item => item.data)
+        .sort((a, b) => a - b);
+
+    if (datas.length) {
+
+      let dataAtual =
+        new Date(
+          datas[0].getFullYear(),
+          datas[0].getMonth(),
+          datas[0].getDate()
+        );
+
+      const dataFinal =
+        new Date(
+          datas[datas.length - 1].getFullYear(),
+          datas[datas.length - 1].getMonth(),
+          datas[datas.length - 1].getDate()
+        );
+
+      while (
+        dataAtual <= dataFinal
+      ) {
+
+        labels.push(
+          `${String(dataAtual.getDate()).padStart(2, '0')}/${String(dataAtual.getMonth() + 1).padStart(2, '0')}`
+        );
+
+        valores.push(
+          mapa.get(
+            chaveDia(dataAtual)
+          ) || 0
+        );
+
+        dataAtual.setDate(
+          dataAtual.getDate() + 1
+        );
+      }
+    }
+
+  } else {
+
+    const [ano, mes] =
+      mesSelecionado
+        .split('-')
+        .map(Number);
+
+    const totalDias =
+      diasNoMes(ano, mes);
+
+    for (
+      let dia = 1;
+      dia <= totalDias;
+      dia++
+    ) {
+
+      const data =
+        new Date(
+          ano,
+          mes - 1,
+          dia
+        );
+
+      labels.push(
+        String(dia).padStart(2, '0')
+      );
+
+      valores.push(
+        mapa.get(
+          chaveDia(data)
+        ) || 0
+      );
+    }
+  }
+
+  const canvas =
+    $('chartSesurbDiario');
+
+  if (!canvas) return;
+
+  if (state.charts.sesurbDiario) {
+
+    state.charts.sesurbDiario.destroy();
+  }
+
+  state.charts.sesurbDiario =
+    new Chart(canvas, {
+
+      type: 'line',
+
+      data: {
+        labels,
+
+        datasets: [{
+          label: 'Produção diária',
+          data: valores,
+          borderWidth: 3,
+          tension: 0.25,
+          pointRadius: 2
+        }]
+      },
+
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        scales: {
+          y: {
+            beginAtZero: true
+          },
+
+          x: {
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 20
+            }
+          }
+        }
+      }
+    });
+}
+
+function renderGraficoSesurbPrazos() {
+
+  const faixas = {
+    '1 dia': 0,
+    '2 a 3 dias': 0,
+    '4 a 7 dias': 0,
+    '8 a 15 dias': 0,
+    'Acima de 15 dias': 0
+  };
+
+  dadosSesurbPeriodo()
+    .forEach(item => {
+
+      const p = item.prazo;
+
+      if (
+        !Number.isFinite(p) ||
+        p <= 0
+      ) {
+        return;
+      }
+
+      if (p <= 1) {
+        faixas['1 dia']++;
+      }
+
+      else if (p <= 3) {
+        faixas['2 a 3 dias']++;
+      }
+
+      else if (p <= 7) {
+        faixas['4 a 7 dias']++;
+      }
+
+      else if (p <= 15) {
+        faixas['8 a 15 dias']++;
+      }
+
+      else {
+        faixas['Acima de 15 dias']++;
+      }
+
+    });
+
+  const labels =
+    Object.keys(faixas);
+
+  const valores =
+    Object.values(faixas);
+
+  const canvas =
+    $('chartSesurbPrazos');
+
+  if (!canvas) return;
+
+  if (state.charts.sesurbPrazos) {
+
+    state.charts.sesurbPrazos.destroy();
+  }
+
+  state.charts.sesurbPrazos =
+    new Chart(canvas, {
+
+      type: 'pie',
+
+      data: {
+        labels,
+
+        datasets: [{
+          data: valores
+        }]
+      },
+
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+}
+
+function rankingSesurb(campo) {
+
+  const mapa = new Map();
+
+  dadosSesurbPeriodo()
+    .forEach(item => {
+
+      const nome =
+        String(
+          item[campo] || ''
+        ).trim();
+
+      if (!nome) return;
+
+      mapa.set(
+        nome,
+        (mapa.get(nome) || 0) + 1
+      );
+
+    });
+
+  return Array.from(
+    mapa.entries()
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+}
+
+function renderSesurb() {
+
+  renderSesurbTotal();
+
+  renderSesurbPrazoMedio();
+
+  renderGraficoSesurbDiario();
+
+  renderGraficoSesurbPrazos();
+
+  renderRanking(
+    'rankSesurbVias',
+    rankingSesurb('via')
+  );
+
+  renderRanking(
+    'rankSesurbBairros',
+    rankingSesurb('bairro')
+  );
+}
+
+function trocarServicoSesurb() {
+
+  preencherSelectSesurbMeses();
+
+  renderSesurb();
+}
+
+async function carregarSesurb(
+  capinaManualCSV,
+  capinaEletricaCSV,
+  drenagemCSV,
+  sarjetaCSV
+) {
+
+  state.sesurb = {
+
+    capinaManual:
+      processarServicoSesurb(
+        capinaManualCSV,
+        'capinaManual'
+      ),
+
+    capinaEletrica:
+      processarServicoSesurb(
+        capinaEletricaCSV,
+        'capinaEletrica'
+      ),
+
+    drenagem:
+      processarServicoSesurb(
+        drenagemCSV,
+        'drenagem'
+      ),
+
+    sarjeta:
+      processarServicoSesurb(
+        sarjetaCSV,
+        'sarjeta'
+      )
+  };
+
+  preencherSelectSesurbServico();
+
+  preencherSelectSesurbMeses();
+
+  renderSesurb();
 }
 
 function configurarEventos() {
-  $('tapaMonth').addEventListener('change', renderTudo);
-  $('refreshTapa').addEventListener('click', renderTudo);
 
-  if ($('settranMonth')) $('settranMonth').addEventListener('change', renderSettran);
-  if ($('refreshSettran')) $('refreshSettran').addEventListener('click', renderSettran);
-  if ($('settranKm')) $('settranKm').addEventListener('input', renderNecessidadeSettran);
-  if ($('settranIndice')) $('settranIndice').addEventListener('input', renderNecessidadeSettran);
+  $('tapaMonth')
+    .addEventListener(
+      'change',
+      renderTudo
+    );
 
-  document.querySelectorAll('.tab').forEach(botao => {
-    botao.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $('refreshTapa')
+    .addEventListener(
+      'click',
+      renderTudo
+    );
 
-      botao.classList.add('active');
+  if ($('settranMonth')) {
 
-      const painel = $(`panel-${botao.dataset.tab}`);
-      if (painel) painel.classList.add('active');
+    $('settranMonth')
+      .addEventListener(
+        'change',
+        renderSettran
+      );
+  }
+
+  if ($('refreshSettran')) {
+
+    $('refreshSettran')
+      .addEventListener(
+        'click',
+        renderSettran
+      );
+  }
+
+  if ($('settranKm')) {
+
+    $('settranKm')
+      .addEventListener(
+        'input',
+        renderNecessidadeSettran
+      );
+  }
+
+  if ($('settranIndice')) {
+
+    $('settranIndice')
+      .addEventListener(
+        'input',
+        renderNecessidadeSettran
+      );
+  }
+
+  if ($('sesurbService')) {
+
+    $('sesurbService')
+      .addEventListener(
+        'change',
+        trocarServicoSesurb
+      );
+  }
+
+  if ($('sesurbMonth')) {
+
+    $('sesurbMonth')
+      .addEventListener(
+        'change',
+        renderSesurb
+      );
+  }
+
+  if ($('refreshSesurb')) {
+
+    $('refreshSesurb')
+      .addEventListener(
+        'click',
+        renderSesurb
+      );
+  }
+
+  document
+    .querySelectorAll('.tab')
+    .forEach(botao => {
+
+      botao.addEventListener(
+        'click',
+        () => {
+
+          document
+            .querySelectorAll('.tab')
+            .forEach(b =>
+              b.classList.remove('active')
+            );
+
+          document
+            .querySelectorAll('.panel')
+            .forEach(p =>
+              p.classList.remove('active')
+            );
+
+          botao.classList.add('active');
+
+          const painel =
+            $(
+              `panel-${botao.dataset.tab}`
+            );
+
+          if (painel) {
+            painel.classList.add('active');
+          }
+        }
+      );
     });
-  });
 }
 
 async function iniciar() {
+
   try {
+
     setStatus('Carregando dados...');
 
     configurarEventos();
 
-    const [resumoCSV, geralCSV, settranCSV] = await Promise.all([
+    const [
+      resumoCSV,
+      geralCSV,
+      settranCSV,
+      capinaManualCSV,
+      capinaEletricaCSV,
+      drenagemCSV,
+      sarjetaCSV
+    ] = await Promise.all([
+
       fetchCSV(CONFIG.urls.resumoTon),
+
       fetchCSV(CONFIG.urls.geral),
-      fetchCSV(CONFIG.urls.settran)
+
+      fetchCSV(CONFIG.urls.settran),
+
+      fetchCSV(CONFIG.urls.capinaManual),
+
+      fetchCSV(CONFIG.urls.capinaEletrica),
+
+      fetchCSV(CONFIG.urls.drenagem),
+
+      fetchCSV(CONFIG.urls.sarjeta)
     ]);
 
     processarResumo(resumoCSV);
+
     processarGeral(geralCSV);
+
     processarSettran(settranCSV);
 
     preencherSelectMeses();
+
     preencherSelectSettran();
 
     renderTudo();
+
     renderSettran();
 
-    $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
-    setStatus('Dados carregados com sucesso.', 'ok');
+    await carregarSesurb(
+      capinaManualCSV,
+      capinaEletricaCSV,
+      drenagemCSV,
+      sarjetaCSV
+    );
+
+    $('lastUpdate').textContent =
+      new Date().toLocaleString('pt-BR');
+
+    setStatus(
+      'Dados carregados com sucesso.',
+      'ok'
+    );
 
   } catch (erro) {
+
     console.error(erro);
-    setStatus('Erro ao carregar dados: ' + erro.message, 'err');
+
+    setStatus(
+      'Erro ao carregar dados: ' +
+      erro.message,
+      'err'
+    );
   }
 }
 
-document.addEventListener('DOMContentLoaded', iniciar);
+document.addEventListener(
+  'DOMContentLoaded',
+  iniciar
+);
