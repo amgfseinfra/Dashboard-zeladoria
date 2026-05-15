@@ -1,114 +1,185 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Dashboard Zeladoria Urbana</title>
+
   <link rel="stylesheet" href="style.css" />
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="script.js"></script>
+  <script src="script.js" defer></script>
 </head>
+
 <body>
+
   <header class="topbar">
     <div>
       <p class="eyebrow">Projeto Zeladoria</p>
+
       <h1>Dashboard de Produção e Prazos</h1>
-      <p class="subtitle">Zeladoria urbana de Uberlândia: tapa-buraco, sinalização e serviços urbanos</p>
+
+      <p class="subtitle">
+        Zeladoria urbana de Uberlândia: tapa-buraco, sinalização e serviços urbanos
+      </p>
     </div>
+
     <div class="update-box">
       <span>Atualização automática via Google Sheets</span>
-      <strong id="lastUpdate">Carregando...</strong>
+
+      <strong id="lastUpdate">
+        Carregando...
+      </strong>
     </div>
   </header>
 
   <main class="container">
+
     <nav class="tabs card" aria-label="Módulos do dashboard">
-      <button class="tab active" data-tab="tapa">SEINFRA | Tapa-buraco</button>
-      <button class="tab" data-tab="settran">SETTRAN | Sinalização</button>
-      <button class="tab" data-tab="sesurb">SESURB | Serviços Urbanos</button>
+
+      <button class="tab active" data-tab="tapa">
+        SEINFRA | Tapa-buraco
+      </button>
+
+      <button class="tab" data-tab="settran">
+        SETTRAN | Sinalização
+      </button>
+
+      <button class="tab" data-tab="sesurb">
+        SESURB | Serviços Urbanos
+      </button>
+
     </nav>
 
-    <section id="statusBox" class="status card">Carregando dados...</section>
+    <section id="statusBox" class="status card">
+      Carregando dados...
+    </section>
 
     <section id="panel-tapa" class="panel active">
+
       <section class="filters card">
+
         <label>
           Mês de referência
+
           <select id="tapaMonth"></select>
         </label>
-        <button id="refreshTapa">Atualizar leitura</button>
+
+        <button id="refreshTapa">
+          Atualizar leitura
+        </button>
+
       </section>
 
       <section class="kpi-grid three">
-        <article class="card kpi"><span>Tonelagem total</span><strong id="tapaTon">-</strong><small>TON TOTAL, aba RESUMO TON</small></article>
-        <article class="card kpi"><span>Área total</span><strong id="tapaArea">-</strong><small>ÁREA (m²) TOTAL, aba RESUMO TON</small></article>
-        <article class="card kpi"><span>Buracos tapados</span><strong id="tapaBuracos">-</strong><small>BURACO (QNT), aba RESUMO TON</small></article>
+
+        <article class="card kpi">
+          <span>Tonelagem total</span>
+
+          <strong id="tapaTon">-</strong>
+
+          <small>TON TOTAL, aba RESUMO TON</small>
+        </article>
+
+        <article class="card kpi">
+          <span>Área total</span>
+
+          <strong id="tapaArea">-</strong>
+
+          <small>ÁREA (m²) TOTAL, aba RESUMO TON</small>
+        </article>
+
+        <article class="card kpi">
+          <span>Buracos tapados</span>
+
+          <strong id="tapaBuracos">-</strong>
+
+          <small>BURACO (QNT), aba RESUMO TON</small>
+        </article>
+
       </section>
 
       <section class="chart-grid">
+
         <article class="card chart-card wide">
-          <div class="card-title"><h2>Buracos tapados por dia</h2><p>Quantidade de buracos tapados em cada dia do período selecionado. Dias sem produção aparecem como zero.</p></div>
+
+          <div class="card-title">
+            <h2>Buracos tapados por dia</h2>
+
+            <p>
+              Quantidade de buracos tapados em cada dia do período selecionado.
+              Dias sem produção aparecem como zero.
+            </p>
+          </div>
+
           <canvas id="chartTapaDiario"></canvas>
+
         </article>
+
       </section>
 
       <section class="chart-grid two-columns">
-        <article class="card table-card"><div class="card-title"><h2>Ranking de vias</h2><p>Vias com maior recorrência de tapa-buraco no período selecionado.</p></div><table><thead><tr><th>#</th><th>Via</th><th>Buracos</th></tr></thead><tbody id="rankVias"></tbody></table></article>
-        <article class="card table-card"><div class="card-title"><h2>Ranking de bairros</h2><p>Bairros com maior recorrência de tapa-buraco no período selecionado.</p></div><table><thead><tr><th>#</th><th>Bairro</th><th>Buracos</th></tr></thead><tbody id="rankBairros"></tbody></table></article>
-      </section>
-    </section>
 
-    <section id="panel-settran" class="panel">
-      <section class="filters card">
-        <label>
-          Mês de referência
-          <select id="settranMonth"></select>
-        </label>
-        <button id="refreshSettran">Atualizar leitura</button>
-      </section>
+        <article class="card table-card">
 
-      <section class="kpi-grid one">
-        <article class="card kpi"><span>Somatório mensal da sinalização</span><strong id="settranTotal">-</strong><small>Produção diária somada no mês selecionado</small></article>
-      </section>
+          <div class="card-title">
+            <h2>Ranking de vias</h2>
 
-      <section class="chart-grid">
-        <article class="card chart-card wide">
-          <div class="card-title"><h2>Produção diária da sinalização</h2><p>Leitura por mês, detectando automaticamente linhas de datas e produção.</p></div>
-          <canvas id="chartSettranDiario"></canvas>
+            <p>
+              Vias com maior recorrência de tapa-buraco no período selecionado.
+            </p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Via</th>
+                <th>Buracos</th>
+              </tr>
+            </thead>
+
+            <tbody id="rankVias"></tbody>
+          </table>
+
         </article>
+
+        <article class="card table-card">
+
+          <div class="card-title">
+            <h2>Ranking de bairros</h2>
+
+            <p>
+              Bairros com maior recorrência de tapa-buraco no período selecionado.
+            </p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Bairro</th>
+                <th>Buracos</th>
+              </tr>
+            </thead>
+
+            <tbody id="rankBairros"></tbody>
+          </table>
+
+        </article>
+
       </section>
+
     </section>
 
-    <section id="panel-sesurb" class="panel">
-      <section class="filters card">
-        <label>
-          Mês de referência
-          <select id="sesurbMonth"></select>
-        </label>
-        <button id="refreshSesurb">Atualizar leitura</button>
-      </section>
+    <section id="panel-settran" class="panel"></section>
 
-      <section class="service-grid">
-        <article class="card service-card"><span>Capina manual + roçagem</span><strong id="sesurbCapinaManual">-</strong><small>m² concluídos</small></article>
-        <article class="card service-card"><span>Capina elétrica</span><strong id="sesurbCapinaEletrica">-</strong><small>m² executados</small></article>
-        <article class="card service-card"><span>Limpeza de drenagem</span><strong id="sesurbDrenagem">-</strong><small>BL limpas</small></article>
-        <article class="card service-card"><span>Pintura de sarjeta</span><strong id="sesurbSarjeta">-</strong><small>m lineares pintados</small></article>
-      </section>
+    <section id="panel-sesurb" class="panel"></section>
 
-      <section class="kpi-grid three">
-        <article class="card kpi"><span>Prazo médio de execução</span><strong id="sesurbPrazoMedio">-</strong><small>Serviços com início e conclusão</small></article>
-        <article class="card kpi"><span>Menor prazo</span><strong id="sesurbMenorPrazo">-</strong><small>Menor prazo calculável</small></article>
-        <article class="card kpi"><span>Maior prazo</span><strong id="sesurbMaiorPrazo">-</strong><small>Maior prazo calculável</small></article>
-      </section>
-
-      <section class="chart-grid two-columns">
-        <article class="card chart-card"><div class="card-title"><h2>Prazo médio por serviço</h2><p>Calculado apenas para serviços com prazo calculável.</p></div><canvas id="chartPrazoServico"></canvas></article>
-        <article class="card chart-card"><div class="card-title"><h2>Distribuição dos prazos</h2><p>Faixas em dias, considerando apenas serviços com início e conclusão.</p></div><canvas id="chartPrazoPizza"></canvas></article>
-      </section>
-    </section>
   </main>
 
-  <script src="script.js"></script>
 </body>
+
 </html>
