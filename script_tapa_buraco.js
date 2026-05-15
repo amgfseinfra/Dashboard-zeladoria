@@ -230,40 +230,42 @@ function processarResumo(linhas) {
 }
 
 function processarGeral(linhas) {
-  const idx = acharCabecalho(linhas, ['DATA', 'BAIRRO', 'LOGADOURO']);
-  const cabecalho = linhas[idx];
-  const dados = linhas.slice(idx + 1);
 
-  const colData = indiceColuna(cabecalho, ['DATA'], 0);
-  const colBairro = indiceColuna(cabecalho, ['BAIRRO'], 1);
-  const colLogradouro = indiceColuna(cabecalho, ['LOGADOURO', 'LOGRADOURO'], 2);
-  const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 3);
-  const colTon = indiceColuna(cabecalho, ['POR SERVICO', 'POR SERVIÇO'], 4);
+  const rankingBairros = [];
+  const rankingVias = [];
 
-  state.geral = dados
-    .map(linha => {
-      const data = parseData(linha[colData]);
+  // BAIRROS = G/H
+  for (let i = 1; i <= 10; i++) {
 
-      if (!data) return null;
-      if (data.getFullYear() !== CONFIG.anoBase) return null;
+    const linha = linhas[i];
 
-      const bairro = String(linha[colBairro] || '').trim();
-      const logradouro = String(linha[colLogradouro] || '').trim();
+    if (!linha) continue;
 
-      if (!bairro && !logradouro) return null;
+    const bairro = String(linha[6] || '').trim();
+    const qtd = parseNumero(linha[7]);
 
-      return {
-        data,
-        mes: chaveMes(data),
-        bairro,
-        logradouro,
-        area: parseNumero(linha[colArea]),
-        tonelagem: parseNumero(linha[colTon])
-      };
-    })
-    .filter(Boolean);
+    if (bairro) {
+      rankingBairros.push([bairro, qtd]);
+    }
+  }
 
-  console.log('TOTAL GERAL PROCESSADO:', state.geral.length);
+  // VIAS = J/K
+  for (let i = 1; i <= 10; i++) {
+
+    const linha = linhas[i];
+
+    if (!linha) continue;
+
+    const via = String(linha[9] || '').trim();
+    const qtd = parseNumero(linha[10]);
+
+    if (via) {
+      rankingVias.push([via, qtd]);
+    }
+  }
+
+  state.rankingBairros = rankingBairros;
+  state.rankingVias = rankingVias;
 }
 
 function dadosDoMes(mesSelecionado) {
@@ -338,63 +340,26 @@ function renderGraficoDiario(mesSelecionado) {
   });
 }
 
-function gerarRanking(campo, mesSelecionado) {
-  const mapa = new Map();
-
-  state.geral
-    .filter(item => item.mes === mesSelecionado)
-    .forEach(item => {
-      const nome = String(item[campo] || '').trim();
-
-      if (!nome) return;
-
-      mapa.set(nome, (mapa.get(nome) || 0) + 1);
-    });
-
-  return Array.from(mapa.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-}
-
-function renderRanking(id, ranking) {
-  const tbody = $(id);
-  tbody.innerHTML = '';
-
-  if (!ranking.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="3" class="empty">Sem registros no mês selecionado.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  ranking.forEach(([nome, total], i) => {
-    const tr = document.createElement('tr');
-
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>${nome}</td>
-      <td>${formatNumber(total, 0)}</td>
-    `;
-
-    tbody.appendChild(tr);
-  });
+function gerarRanking() {
+  return [];
 }
 
 function renderTudo() {
-  const mesSelecionado = $('tapaMonth').value;
-  const registrosMes = state.geral.filter(item => item.mes === mesSelecionado);
 
-  console.log('MÊS SELECIONADO:', mesSelecionado);
-  console.log('REGISTROS DO MÊS:', registrosMes.length);
-  console.log('RANKING VIAS:', gerarRanking('logradouro', mesSelecionado));
-  console.log('RANKING BAIRROS:', gerarRanking('bairro', mesSelecionado));
+  const mesSelecionado = $('tapaMonth').value;
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-  renderRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
-  renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
+
+  renderRanking(
+    'rankVias',
+    state.rankingVias || []
+  );
+
+  renderRanking(
+    'rankBairros',
+    state.rankingBairros || []
+  );
 }
 
 function configurarEventos() {
