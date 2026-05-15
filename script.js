@@ -1,7 +1,5 @@
 'use strict';
 
-const VERSAO_SCRIPT = 'TAPA-BURACO-V3-2026-05-15';
-
 const CONFIG = {
   anoBase: 2026,
   urls: {
@@ -37,14 +35,6 @@ function formatNumber(valor, casas = 0) {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas
   });
-}
-
-function normalizarTexto(valor) {
-  return String(valor ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .trim();
 }
 
 function parseCSV(texto) {
@@ -115,26 +105,38 @@ function parseNumero(valor) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function normalizarTexto(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
+
+function parseMesResumo(valor) {
+  const numero = Number(String(valor ?? '').trim());
+
+  if (Number.isFinite(numero) && numero >= 1 && numero <= 12) {
+    return `${CONFIG.anoBase}-${String(numero).padStart(2, '0')}`;
+  }
+
+  const data = parseData(valor);
+
+  if (data) return chaveMes(data);
+
+  return null;
+}
+
 function parseData(valor) {
   if (!valor) return null;
 
-  let texto = String(valor).trim();
+  const texto = String(valor).trim();
 
-  let m = texto.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
-  if (m) {
-    return new Date(Number(m[1]), Number(m[2]), Number(m[3]));
-  }
-
-  m = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) {
-    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  }
-
-  m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  let m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (!m) return null;
 
-  let a = Number(m[1]);
-  let b = Number(m[2]);
+  let p1 = Number(m[1]);
+  let p2 = Number(m[2]);
   let ano = Number(m[3]);
 
   if (ano < 100) ano += 2000;
@@ -142,13 +144,9 @@ function parseData(valor) {
   let mes;
   let dia;
 
-  if (a > 12 && b <= 12) {
-    dia = a;
-    mes = b;
-  } else {
-    mes = a;
-    dia = b;
-  }
+  // planilha informada como MÊS/DIA/ANO
+  mes = p1;
+  dia = p2;
 
   const data = new Date(ano, mes - 1, dia);
 
@@ -175,22 +173,24 @@ function diasNoMes(ano, mes) {
   return new Date(ano, mes, 0).getDate();
 }
 
-function acharCabecalho(linhas, palavrasObrigatorias) {
+function acharCabecalho(linhas, obrigatorias) {
   for (let i = 0; i < linhas.length; i++) {
-    const textoLinha = normalizarTexto(linhas[i].join(' | '));
-    const ok = palavrasObrigatorias.every(p => textoLinha.includes(normalizarTexto(p)));
-    if (ok) return i;
+    const texto = normalizarTexto(linhas[i].join(' | '));
+
+    if (obrigatorias.every(p => texto.includes(normalizarTexto(p)))) {
+      return i;
+    }
   }
 
   return 0;
 }
 
-function indiceColuna(cabecalho, alternativas, fallback) {
-  const normalizado = cabecalho.map(normalizarTexto);
+function indiceColuna(cabecalho, nomes, fallback) {
+  const cab = cabecalho.map(normalizarTexto);
 
-  for (const alt of alternativas) {
-    const alvo = normalizarTexto(alt);
-    const idx = normalizado.findIndex(col => col.includes(alvo));
+  for (const nome of nomes) {
+    const alvo = normalizarTexto(nome);
+    const idx = cab.findIndex(c => c.includes(alvo));
     if (idx >= 0) return idx;
   }
 
@@ -211,47 +211,46 @@ function preencherSelectMeses() {
 }
 
 function processarResumo(linhas) {
-  const linhaCabecalho = acharCabecalho(linhas, ['DATA']);
-  const cabecalho = linhas[linhaCabecalho];
-  const dados = linhas.slice(linhaCabecalho + 1);
+  const idx = acharCabecalho(linhas, ['DATA', 'TON TOTAL', 'BURACO']);
+  const cabecalho = linhas[idx];
+  const dados = linhas.slice(idx + 1);
 
   const colData = indiceColuna(cabecalho, ['DATA'], 0);
-  const colTon = indiceColuna(cabecalho, ['TON TOTAL', 'TON'], 1);
+  const colTon = indiceColuna(cabecalho, ['TON TOTAL'], 1);
   const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 2);
-  const colBuracos = indiceColuna(cabecalho, ['BURACO', 'QNT'], 3);
+  const colBuraco = indiceColuna(cabecalho, ['BURACO'], 3);
 
   state.resumo = dados
     .map(linha => {
-      const data = parseData(linha[colData]);
-      if (!data) return null;
+      const mes = parseMesResumo(linha[colData]);
+
+      if (!mes) return null;
 
       return {
-        data,
-        mes: chaveMes(data),
+        mes,
         tonelagem: parseNumero(linha[colTon]),
         area: parseNumero(linha[colArea]),
-        buracos: parseNumero(linha[colBuracos])
+        buracos: parseNumero(linha[colBuraco])
       };
     })
     .filter(Boolean);
-
-  console.log(VERSAO_SCRIPT, 'RESUMO PROCESSADO:', state.resumo);
 }
 
 function processarGeral(linhas) {
-  const linhaCabecalho = acharCabecalho(linhas, ['DATA', 'BAIRRO']);
-  const cabecalho = linhas[linhaCabecalho];
-  const dados = linhas.slice(linhaCabecalho + 1);
+  const idx = acharCabecalho(linhas, ['DATA', 'BAIRRO', 'LOGADOURO']);
+  const cabecalho = linhas[idx];
+  const dados = linhas.slice(idx + 1);
 
   const colData = indiceColuna(cabecalho, ['DATA'], 0);
   const colBairro = indiceColuna(cabecalho, ['BAIRRO'], 1);
-  const colLogradouro = indiceColuna(cabecalho, ['LOGADOURO', 'LOGRADOURO', 'VIA'], 2);
+  const colLogradouro = indiceColuna(cabecalho, ['LOGADOURO', 'LOGRADOURO'], 2);
   const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 3);
-  const colTon = indiceColuna(cabecalho, ['POR SERVICO', 'POR SERVIÇO', 'TON'], 4);
+  const colTon = indiceColuna(cabecalho, ['POR SERVICO', 'POR SERVIÇO'], 4);
 
   state.geral = dados
     .map(linha => {
       const data = parseData(linha[colData]);
+
       if (!data) return null;
 
       return {
@@ -264,45 +263,37 @@ function processarGeral(linhas) {
       };
     })
     .filter(Boolean);
-
-  console.log(VERSAO_SCRIPT, 'GERAL PROCESSADO:', state.geral);
 }
 
-function dadosGeralDoMes(mesSelecionado) {
+function dadosDoMes(mesSelecionado) {
   return state.geral.filter(item => item.mes === mesSelecionado);
 }
 
 function renderKPIs(mesSelecionado) {
   const resumo = state.resumo.find(item => item.mes === mesSelecionado);
 
-  if (resumo) {
-    $('tapaTon').textContent = `${formatNumber(resumo.tonelagem, 2)} t`;
-    $('tapaArea').textContent = `${formatNumber(resumo.area, 2)} m²`;
-    $('tapaBuracos').textContent = formatNumber(resumo.buracos, 0);
+  if (!resumo) {
+    $('tapaTon').textContent = '-';
+    $('tapaArea').textContent = '-';
+    $('tapaBuracos').textContent = '-';
     return;
   }
 
-  const dadosMes = dadosGeralDoMes(mesSelecionado);
-
-  const tonelagem = dadosMes.reduce((soma, item) => soma + item.tonelagem, 0);
-  const area = dadosMes.reduce((soma, item) => soma + item.area, 0);
-  const buracos = dadosMes.length;
-
-  $('tapaTon').textContent = dadosMes.length ? `${formatNumber(tonelagem, 2)} t` : '-';
-  $('tapaArea').textContent = dadosMes.length ? `${formatNumber(area, 2)} m²` : '-';
-  $('tapaBuracos').textContent = dadosMes.length ? formatNumber(buracos, 0) : '-';
+  $('tapaTon').textContent = `${formatNumber(resumo.tonelagem, 2)} t`;
+  $('tapaArea').textContent = `${formatNumber(resumo.area, 2)} m²`;
+  $('tapaBuracos').textContent = formatNumber(resumo.buracos, 0);
 }
 
 function renderGraficoDiario(mesSelecionado) {
   const [ano, mes] = mesSelecionado.split('-').map(Number);
   const totalDias = diasNoMes(ano, mes);
-  const dadosMes = dadosGeralDoMes(mesSelecionado);
+  const dados = dadosDoMes(mesSelecionado);
 
-  const contagem = new Map();
+  const mapa = new Map();
 
-  dadosMes.forEach(item => {
-    const dia = chaveDia(item.data);
-    contagem.set(dia, (contagem.get(dia) || 0) + 1);
+  dados.forEach(item => {
+    const chave = chaveDia(item.data);
+    mapa.set(chave, (mapa.get(chave) || 0) + 1);
   });
 
   const labels = [];
@@ -310,8 +301,9 @@ function renderGraficoDiario(mesSelecionado) {
 
   for (let dia = 1; dia <= totalDias; dia++) {
     const data = new Date(ano, mes - 1, dia);
+
     labels.push(String(dia).padStart(2, '0'));
-    valores.push(contagem.get(chaveDia(data)) || 0);
+    valores.push(mapa.get(chaveDia(data)) || 0);
   }
 
   if (state.charts.tapaDiario) {
@@ -346,11 +338,11 @@ function renderGraficoDiario(mesSelecionado) {
 }
 
 function gerarRanking(campo, mesSelecionado) {
-  const dadosMes = dadosGeralDoMes(mesSelecionado);
   const mapa = new Map();
 
-  dadosMes.forEach(item => {
+  dadosDoMes(mesSelecionado).forEach(item => {
     const nome = String(item[campo] || '').trim();
+
     if (!nome) return;
 
     mapa.set(nome, (mapa.get(nome) || 0) + 1);
@@ -361,7 +353,7 @@ function gerarRanking(campo, mesSelecionado) {
     .slice(0, 10);
 }
 
-function renderTabelaRanking(id, ranking) {
+function renderRanking(id, ranking) {
   const tbody = $(id);
   tbody.innerHTML = '';
 
@@ -392,10 +384,8 @@ function renderTudo() {
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-  renderTabelaRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
-  renderTabelaRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
-
-  console.log(VERSAO_SCRIPT, 'MÊS SELECIONADO:', mesSelecionado, 'REGISTROS NO MÊS:', dadosGeralDoMes(mesSelecionado).length);
+  renderRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
+  renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
 }
 
 function configurarEventos() {
@@ -417,9 +407,6 @@ function configurarEventos() {
 
 async function iniciar() {
   try {
-    console.clear();
-    console.log('SCRIPT CARREGADO:', VERSAO_SCRIPT);
-
     setStatus('Carregando dados de tapa-buraco...');
 
     configurarEventos();
@@ -436,8 +423,7 @@ async function iniciar() {
     renderTudo();
 
     $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
-    setStatus('Dados carregados com sucesso. ' + VERSAO_SCRIPT, 'ok');
-
+    setStatus('Dados carregados com sucesso.', 'ok');
   } catch (erro) {
     console.error(erro);
     setStatus('Erro ao carregar dados: ' + erro.message, 'err');
