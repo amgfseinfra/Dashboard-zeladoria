@@ -1,5 +1,7 @@
 'use strict';
 
+const VERSAO_SCRIPT = 'TAPA-BURACO-V3-2026-05-15';
+
 const CONFIG = {
   anoBase: 2026,
   urls: {
@@ -14,7 +16,7 @@ const state = {
   charts: {}
 };
 
-const meses = [
+const nomesMeses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
@@ -35,6 +37,14 @@ function formatNumber(valor, casas = 0) {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas
   });
+}
+
+function normalizarTexto(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
 }
 
 function parseCSV(texto) {
@@ -75,7 +85,7 @@ function parseCSV(texto) {
 }
 
 async function fetchCSV(url) {
-  const resposta = await fetch(url + '&cacheBust=' + Date.now(), {
+  const resposta = await fetch(url + '&v=' + Date.now(), {
     cache: 'no-store'
   });
 
@@ -87,9 +97,7 @@ async function fetchCSV(url) {
 }
 
 function parseNumero(valor) {
-  if (valor === null || valor === undefined) return 0;
-
-  let texto = String(valor).trim();
+  let texto = String(valor ?? '').trim();
 
   if (!texto || texto === '-') return 0;
 
@@ -110,16 +118,37 @@ function parseNumero(valor) {
 function parseData(valor) {
   if (!valor) return null;
 
-  const texto = String(valor).trim();
-  const partes = texto.split('/');
+  let texto = String(valor).trim();
 
-  if (partes.length !== 3) return null;
+  let m = texto.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]), Number(m[3]));
+  }
 
-  const mes = Number(partes[0]);
-  const dia = Number(partes[1]);
-  let ano = Number(partes[2]);
+  m = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+
+  m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+
+  let a = Number(m[1]);
+  let b = Number(m[2]);
+  let ano = Number(m[3]);
 
   if (ano < 100) ano += 2000;
+
+  let mes;
+  let dia;
+
+  if (a > 12 && b <= 12) {
+    dia = a;
+    mes = b;
+  } else {
+    mes = a;
+    dia = b;
+  }
 
   const data = new Date(ano, mes - 1, dia);
 
@@ -146,13 +175,35 @@ function diasNoMes(ano, mes) {
   return new Date(ano, mes, 0).getDate();
 }
 
+function acharCabecalho(linhas, palavrasObrigatorias) {
+  for (let i = 0; i < linhas.length; i++) {
+    const textoLinha = normalizarTexto(linhas[i].join(' | '));
+    const ok = palavrasObrigatorias.every(p => textoLinha.includes(normalizarTexto(p)));
+    if (ok) return i;
+  }
+
+  return 0;
+}
+
+function indiceColuna(cabecalho, alternativas, fallback) {
+  const normalizado = cabecalho.map(normalizarTexto);
+
+  for (const alt of alternativas) {
+    const alvo = normalizarTexto(alt);
+    const idx = normalizado.findIndex(col => col.includes(alvo));
+    if (idx >= 0) return idx;
+  }
+
+  return fallback;
+}
+
 function preencherSelectMeses() {
   const select = $('tapaMonth');
   select.innerHTML = '';
 
   for (let mes = 1; mes <= 12; mes++) {
     const valor = `${CONFIG.anoBase}-${String(mes).padStart(2, '0')}`;
-    const texto = `${meses[mes - 1]} de ${CONFIG.anoBase}`;
+    const texto = `${nomesMeses[mes - 1]} de ${CONFIG.anoBase}`;
     select.add(new Option(texto, valor));
   }
 
@@ -160,85 +211,98 @@ function preencherSelectMeses() {
 }
 
 function processarResumo(linhas) {
+  const linhaCabecalho = acharCabecalho(linhas, ['DATA']);
+  const cabecalho = linhas[linhaCabecalho];
+  const dados = linhas.slice(linhaCabecalho + 1);
 
-  const dados = linhas.slice(1);
+  const colData = indiceColuna(cabecalho, ['DATA'], 0);
+  const colTon = indiceColuna(cabecalho, ['TON TOTAL', 'TON'], 1);
+  const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 2);
+  const colBuracos = indiceColuna(cabecalho, ['BURACO', 'QNT'], 3);
 
   state.resumo = dados
     .map(linha => {
-
-      const data = parseData(linha[0]);
-
+      const data = parseData(linha[colData]);
       if (!data) return null;
 
       return {
         data,
         mes: chaveMes(data),
-        tonelagem: parseNumero(linha[1]),
-        area: parseNumero(linha[2]),
-        buracos: parseNumero(linha[3])
+        tonelagem: parseNumero(linha[colTon]),
+        area: parseNumero(linha[colArea]),
+        buracos: parseNumero(linha[colBuracos])
       };
-
     })
     .filter(Boolean);
 
-  console.log('RESUMO:', state.resumo);
+  console.log(VERSAO_SCRIPT, 'RESUMO PROCESSADO:', state.resumo);
 }
 
 function processarGeral(linhas) {
+  const linhaCabecalho = acharCabecalho(linhas, ['DATA', 'BAIRRO']);
+  const cabecalho = linhas[linhaCabecalho];
+  const dados = linhas.slice(linhaCabecalho + 1);
 
-  const dados = linhas.slice(1);
+  const colData = indiceColuna(cabecalho, ['DATA'], 0);
+  const colBairro = indiceColuna(cabecalho, ['BAIRRO'], 1);
+  const colLogradouro = indiceColuna(cabecalho, ['LOGADOURO', 'LOGRADOURO', 'VIA'], 2);
+  const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 3);
+  const colTon = indiceColuna(cabecalho, ['POR SERVICO', 'POR SERVIÇO', 'TON'], 4);
 
   state.geral = dados
     .map(linha => {
-
-      const data = parseData(linha[0]);
-
+      const data = parseData(linha[colData]);
       if (!data) return null;
 
       return {
         data,
         mes: chaveMes(data),
-        bairro: String(linha[1] || '').trim(),
-        logradouro: String(linha[2] || '').trim(),
-        area: parseNumero(linha[3]),
-        tonelagem: parseNumero(linha[4])
+        bairro: String(linha[colBairro] || '').trim(),
+        logradouro: String(linha[colLogradouro] || '').trim(),
+        area: parseNumero(linha[colArea]),
+        tonelagem: parseNumero(linha[colTon])
       };
-
     })
     .filter(Boolean);
 
-  console.log('GERAL:', state.geral);
+  console.log(VERSAO_SCRIPT, 'GERAL PROCESSADO:', state.geral);
 }
 
-function dadosDoMes(mesSelecionado) {
+function dadosGeralDoMes(mesSelecionado) {
   return state.geral.filter(item => item.mes === mesSelecionado);
 }
 
 function renderKPIs(mesSelecionado) {
   const resumo = state.resumo.find(item => item.mes === mesSelecionado);
 
-  if (!resumo) {
-    $('tapaTon').textContent = '-';
-    $('tapaArea').textContent = '-';
-    $('tapaBuracos').textContent = '-';
+  if (resumo) {
+    $('tapaTon').textContent = `${formatNumber(resumo.tonelagem, 2)} t`;
+    $('tapaArea').textContent = `${formatNumber(resumo.area, 2)} m²`;
+    $('tapaBuracos').textContent = formatNumber(resumo.buracos, 0);
     return;
   }
 
-  $('tapaTon').textContent = `${formatNumber(resumo.tonelagem, 2)} t`;
-  $('tapaArea').textContent = `${formatNumber(resumo.area, 2)} m²`;
-  $('tapaBuracos').textContent = formatNumber(resumo.buracos, 0);
+  const dadosMes = dadosGeralDoMes(mesSelecionado);
+
+  const tonelagem = dadosMes.reduce((soma, item) => soma + item.tonelagem, 0);
+  const area = dadosMes.reduce((soma, item) => soma + item.area, 0);
+  const buracos = dadosMes.length;
+
+  $('tapaTon').textContent = dadosMes.length ? `${formatNumber(tonelagem, 2)} t` : '-';
+  $('tapaArea').textContent = dadosMes.length ? `${formatNumber(area, 2)} m²` : '-';
+  $('tapaBuracos').textContent = dadosMes.length ? formatNumber(buracos, 0) : '-';
 }
 
 function renderGraficoDiario(mesSelecionado) {
   const [ano, mes] = mesSelecionado.split('-').map(Number);
   const totalDias = diasNoMes(ano, mes);
-  const dados = dadosDoMes(mesSelecionado);
+  const dadosMes = dadosGeralDoMes(mesSelecionado);
 
-  const mapa = new Map();
+  const contagem = new Map();
 
-  dados.forEach(item => {
-    const chave = chaveDia(item.data);
-    mapa.set(chave, (mapa.get(chave) || 0) + 1);
+  dadosMes.forEach(item => {
+    const dia = chaveDia(item.data);
+    contagem.set(dia, (contagem.get(dia) || 0) + 1);
   });
 
   const labels = [];
@@ -247,7 +311,7 @@ function renderGraficoDiario(mesSelecionado) {
   for (let dia = 1; dia <= totalDias; dia++) {
     const data = new Date(ano, mes - 1, dia);
     labels.push(String(dia).padStart(2, '0'));
-    valores.push(mapa.get(chaveDia(data)) || 0);
+    valores.push(contagem.get(chaveDia(data)) || 0);
   }
 
   if (state.charts.tapaDiario) {
@@ -282,10 +346,10 @@ function renderGraficoDiario(mesSelecionado) {
 }
 
 function gerarRanking(campo, mesSelecionado) {
-  const dados = dadosDoMes(mesSelecionado);
+  const dadosMes = dadosGeralDoMes(mesSelecionado);
   const mapa = new Map();
 
-  dados.forEach(item => {
+  dadosMes.forEach(item => {
     const nome = String(item[campo] || '').trim();
     if (!nome) return;
 
@@ -297,7 +361,7 @@ function gerarRanking(campo, mesSelecionado) {
     .slice(0, 10);
 }
 
-function renderRanking(id, ranking) {
+function renderTabelaRanking(id, ranking) {
   const tbody = $(id);
   tbody.innerHTML = '';
 
@@ -310,11 +374,11 @@ function renderRanking(id, ranking) {
     return;
   }
 
-  ranking.forEach(([nome, total], index) => {
+  ranking.forEach(([nome, total], i) => {
     const tr = document.createElement('tr');
 
     tr.innerHTML = `
-      <td>${index + 1}</td>
+      <td>${i + 1}</td>
       <td>${nome}</td>
       <td>${formatNumber(total, 0)}</td>
     `;
@@ -328,8 +392,10 @@ function renderTudo() {
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-  renderRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
-  renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
+  renderTabelaRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
+  renderTabelaRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
+
+  console.log(VERSAO_SCRIPT, 'MÊS SELECIONADO:', mesSelecionado, 'REGISTROS NO MÊS:', dadosGeralDoMes(mesSelecionado).length);
 }
 
 function configurarEventos() {
@@ -351,6 +417,9 @@ function configurarEventos() {
 
 async function iniciar() {
   try {
+    console.clear();
+    console.log('SCRIPT CARREGADO:', VERSAO_SCRIPT);
+
     setStatus('Carregando dados de tapa-buraco...');
 
     configurarEventos();
@@ -367,7 +436,7 @@ async function iniciar() {
     renderTudo();
 
     $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
-    setStatus('Dados carregados com sucesso.', 'ok');
+    setStatus('Dados carregados com sucesso. ' + VERSAO_SCRIPT, 'ok');
 
   } catch (erro) {
     console.error(erro);
