@@ -160,11 +160,14 @@ function preencherSelectMeses() {
 }
 
 function processarResumo(linhas) {
+
   const dados = linhas.slice(1);
 
   state.resumo = dados
     .map(linha => {
+
       const data = parseData(linha[0]);
+
       if (!data) return null;
 
       return {
@@ -174,16 +177,22 @@ function processarResumo(linhas) {
         area: parseNumero(linha[2]),
         buracos: parseNumero(linha[3])
       };
+
     })
     .filter(Boolean);
+
+  console.log('RESUMO:', state.resumo);
 }
 
 function processarGeral(linhas) {
+
   const dados = linhas.slice(1);
 
   state.geral = dados
     .map(linha => {
+
       const data = parseData(linha[0]);
+
       if (!data) return null;
 
       return {
@@ -194,8 +203,11 @@ function processarGeral(linhas) {
         area: parseNumero(linha[3]),
         tonelagem: parseNumero(linha[4])
       };
+
     })
     .filter(Boolean);
+
+  console.log('GERAL:', state.geral);
 }
 
 function dadosDoMes(mesSelecionado) {
