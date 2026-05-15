@@ -4,13 +4,15 @@ const CONFIG = {
   anoBase: 2026,
   urls: {
     resumoTon: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4LFVuZ0zcS7_0vZYDu9k4UN2TRQ3e5wDYAlxyBnLTXri8YV-9LBYugIcTgbeZDxc6UerJK1f7OeC8/pub?gid=0&single=true&output=csv',
-    geral: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4LFVuZ0zcS7_0vZYDu9k4UN2TRQ3e5wDYAlxyBnLTXri8YV-9LBYugIcTgbeZDxc6UerJK1f7OeC8/pub?gid=2071576844&single=true&output=csv'
+    geral: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4LFVuZ0zcS7_0vZYDu9k4UN2TRQ3e5wDYAlxyBnLTXri8YV-9LBYugIcTgbeZDxc6UerJK1f7OeC8/pub?gid=2071576844&single=true&output=csv',
+    settran: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRQfc4beWDtxWWleEmmhZPCHyTP8X6hLmZSCuDJgnK8UjU3roulJuBiU4zDYIkQxx48DUd_qpKYJ3xc/pub?gid=0&single=true&output=csv'
   }
 };
 
 const state = {
   resumo: [],
   geral: [],
+  settran: [],
   charts: {}
 };
 
@@ -452,9 +454,235 @@ function renderTudo() {
   renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
 }
 
+function parseDataSettran(valor) {
+  const texto = normalizarTexto(valor).replace(/\s/g, '');
+  const match = texto.match(/^(\d{1,2})\/?([A-Z]{3})$/);
+
+  if (!match) return null;
+
+  const dia = Number(match[1]);
+  const mapaMeses = {
+    JAN: 0,
+    FEV: 1,
+    MAR: 2,
+    ABR: 3,
+    MAI: 4,
+    JUN: 5,
+    JUL: 6,
+    AGO: 7,
+    SET: 8,
+    OUT: 9,
+    NOV: 10,
+    DEZ: 11
+  };
+
+  const mes = mapaMeses[match[2]];
+  if (mes === undefined) return null;
+
+  const data = new Date(CONFIG.anoBase, mes, dia);
+
+  if (
+    data.getFullYear() !== CONFIG.anoBase ||
+    data.getMonth() !== mes ||
+    data.getDate() !== dia
+  ) {
+    return null;
+  }
+
+  return data;
+}
+
+function processarSettran(linhas) {
+  const registros = [];
+
+  for (let i = 0; i < linhas.length; i++) {
+    const linhaDatas = linhas[i];
+    const datasEncontradas = [];
+
+    linhaDatas.forEach((celula, coluna) => {
+      const data = parseDataSettran(celula);
+      if (data) datasEncontradas.push({ coluna, data });
+    });
+
+    if (!datasEncontradas.length) continue;
+
+    let linhaProducao = null;
+
+    for (let j = i + 1; j <= Math.min(i + 3, linhas.length - 1); j++) {
+      const preenchidos = datasEncontradas.filter(({ coluna }) => {
+        return parseNumero(linhas[j][coluna]) > 0;
+      }).length;
+
+      if (preenchidos > 0) {
+        linhaProducao = linhas[j];
+        break;
+      }
+    }
+
+    if (!linhaProducao) continue;
+
+    datasEncontradas.forEach(({ coluna, data }) => {
+      registros.push({
+        data,
+        mes: chaveMes(data),
+        producao: parseNumero(linhaProducao[coluna])
+      });
+    });
+  }
+
+  state.settran = registros;
+}
+
+function preencherSelectSettran() {
+  const select = $('settranMonth');
+  if (!select) return;
+
+  const meses = Array.from(new Set(state.settran.map(item => item.mes))).sort();
+
+  select.innerHTML = '';
+  select.add(new Option('Todos', 'todos'));
+
+  meses.forEach(mes => {
+    const numeroMes = Number(mes.split('-')[1]);
+    select.add(new Option(`${nomesMeses[numeroMes - 1]} de ${CONFIG.anoBase}`, mes));
+  });
+
+  select.value = 'todos';
+}
+
+function dadosSettranDoPeriodo(mesSelecionado) {
+  if (mesSelecionado === 'todos') return state.settran;
+  return state.settran.filter(item => item.mes === mesSelecionado);
+}
+
+function totalSettranPeriodo(mesSelecionado) {
+  return dadosSettranDoPeriodo(mesSelecionado).reduce((soma, item) => soma + item.producao, 0);
+}
+
+function renderSettranTotal(mesSelecionado) {
+  const total = totalSettranPeriodo(mesSelecionado);
+  const el = $('settranTotal');
+  if (el) el.textContent = `${formatNumber(total, 2)} m²`;
+}
+
+function renderGraficoSettran(mesSelecionado) {
+  const dados = dadosSettranDoPeriodo(mesSelecionado);
+  const mapa = new Map();
+
+  dados.forEach(item => {
+    mapa.set(chaveDia(item.data), (mapa.get(chaveDia(item.data)) || 0) + item.producao);
+  });
+
+  const labels = [];
+  const valores = [];
+
+  if (mesSelecionado === 'todos') {
+    const datas = dados.map(item => item.data).sort((a, b) => a - b);
+
+    if (datas.length) {
+      let dataAtual = new Date(datas[0].getFullYear(), datas[0].getMonth(), datas[0].getDate());
+      const dataFinal = new Date(datas[datas.length - 1].getFullYear(), datas[datas.length - 1].getMonth(), datas[datas.length - 1].getDate());
+
+      while (dataAtual <= dataFinal) {
+        labels.push(`${String(dataAtual.getDate()).padStart(2, '0')}/${String(dataAtual.getMonth() + 1).padStart(2, '0')}`);
+        valores.push(mapa.get(chaveDia(dataAtual)) || 0);
+        dataAtual.setDate(dataAtual.getDate() + 1);
+      }
+    }
+  } else {
+    const [ano, mes] = mesSelecionado.split('-').map(Number);
+    const totalDias = diasNoMes(ano, mes);
+
+    for (let dia = 1; dia <= totalDias; dia++) {
+      const data = new Date(ano, mes - 1, dia);
+      labels.push(String(dia).padStart(2, '0'));
+      valores.push(mapa.get(chaveDia(data)) || 0);
+    }
+  }
+
+  const canvas = $('chartSettranDiario');
+  if (!canvas) return;
+
+  if (state.charts.settranDiario) {
+    state.charts.settranDiario.destroy();
+  }
+
+  state.charts.settranDiario = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Produção diária de sinalização',
+        data: valores,
+        borderWidth: 3,
+        tension: 0.25,
+        pointRadius: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true
+        },
+        x: {
+          ticks: {
+            autoSkip: true,
+            maxTicksLimit: 20
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderNecessidadeSettran() {
+  const km = parseNumero($('settranKm')?.value || 0);
+  const indice = parseNumero($('settranIndice')?.value || 1350);
+  const mesSelecionado = $('settranMonth')?.value || 'todos';
+  const producao = totalSettranPeriodo(mesSelecionado);
+  const necessidade = km * indice;
+  const diferenca = Math.max(0, necessidade - producao);
+  const equipes = diferenca > 0 ? Math.ceil(diferenca / 150) : 0;
+
+  const necessidadeEl = $('settranNecessidadeResultado');
+  const analiseEl = $('settranAnaliseEquipe');
+
+  if (necessidadeEl) {
+    necessidadeEl.textContent = `${formatNumber(necessidade, 2)} m²`;
+  }
+
+  if (analiseEl) {
+    if (!km) {
+      analiseEl.textContent = 'Informe a quilometragem para analisar a equipe.';
+      analiseEl.className = 'analysis-note';
+    } else if (diferenca > 0) {
+      analiseEl.textContent = `Equipe subdimensionada. Déficit de ${formatNumber(diferenca, 2)} m². Aumentar ${equipes} equipe(s).`;
+      analiseEl.className = 'analysis-note alert';
+    } else {
+      analiseEl.textContent = 'Produção compatível com a necessidade informada.';
+      analiseEl.className = 'analysis-note ok';
+    }
+  }
+}
+
+function renderSettran() {
+  const mesSelecionado = $('settranMonth')?.value || 'todos';
+
+  renderSettranTotal(mesSelecionado);
+  renderGraficoSettran(mesSelecionado);
+  renderNecessidadeSettran();
+}
+
 function configurarEventos() {
   $('tapaMonth').addEventListener('change', renderTudo);
   $('refreshTapa').addEventListener('click', renderTudo);
+
+  if ($('settranMonth')) $('settranMonth').addEventListener('change', renderSettran);
+  if ($('refreshSettran')) $('refreshSettran').addEventListener('click', renderSettran);
+  if ($('settranKm')) $('settranKm').addEventListener('input', renderNecessidadeSettran);
+  if ($('settranIndice')) $('settranIndice').addEventListener('input', renderNecessidadeSettran);
 
   document.querySelectorAll('.tab').forEach(botao => {
     botao.addEventListener('click', () => {
@@ -471,20 +699,25 @@ function configurarEventos() {
 
 async function iniciar() {
   try {
-    setStatus('Carregando dados de tapa-buraco...');
+    setStatus('Carregando dados...');
 
     configurarEventos();
 
-    const [resumoCSV, geralCSV] = await Promise.all([
+    const [resumoCSV, geralCSV, settranCSV] = await Promise.all([
       fetchCSV(CONFIG.urls.resumoTon),
-      fetchCSV(CONFIG.urls.geral)
+      fetchCSV(CONFIG.urls.geral),
+      fetchCSV(CONFIG.urls.settran)
     ]);
 
     processarResumo(resumoCSV);
     processarGeral(geralCSV);
+    processarSettran(settranCSV);
 
     preencherSelectMeses();
+    preencherSelectSettran();
+
     renderTudo();
+    renderSettran();
 
     $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
     setStatus('Dados carregados com sucesso.', 'ok');
