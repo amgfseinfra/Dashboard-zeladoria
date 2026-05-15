@@ -305,3 +305,12 @@ td:last-child, th:last-child { text-align: right; }
     grid-template-columns: 1fr;
   }
 }
+.kpi-grid.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 900px) {
+  .kpi-grid.two {
+    grid-template-columns: 1fr;
+  }
+}
