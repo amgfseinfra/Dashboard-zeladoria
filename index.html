@@ -109,12 +109,60 @@
       </section>
     </section>
 
-    <section id="panel-settran" class="panel">
-      <section class="placeholder card">
-        <h2>SETTRAN | Sinalização</h2>
-        <p>Módulo reservado para a próxima etapa.</p>
-      </section>
-    </section>
+ <section id="panel-settran" class="panel">
+  <section class="filters card">
+    <label for="settranMonth">
+      Mês de referência
+      <select id="settranMonth"></select>
+    </label>
+
+    <button id="refreshSettran" type="button">Atualizar leitura</button>
+  </section>
+
+  <section class="kpi-grid three">
+    <article class="card kpi">
+      <span>Produção total da sinalização</span>
+      <strong id="settranTotal">-</strong>
+      <small>Somatório do período selecionado</small>
+    </article>
+
+    <article class="card kpi settran-need-card">
+      <span>Necessidade de pintura da zeladoria</span>
+
+      <div class="mini-form">
+        <label>
+          Quilometragem
+          <input id="settranKm" type="number" min="0" step="0.01" placeholder="Ex.: 12.5" />
+        </label>
+
+        <label>
+          m²/km
+          <input id="settranIndice" type="number" min="0" step="1" value="1350" />
+        </label>
+      </div>
+
+      <strong id="settranNecessidadeResultado">0,00 m²</strong>
+      <small id="settranAnaliseEquipe" class="analysis-note">Informe a quilometragem para analisar a equipe.</small>
+    </article>
+
+    <article class="card kpi">
+      <span>Produção média por equipe</span>
+      <strong>150 m²</strong>
+      <small>Base usada para estimar reforço necessário</small>
+    </article>
+  </section>
+
+  <section class="chart-grid">
+    <article class="card chart-card wide">
+      <div class="card-title">
+        <h2>Produção diária da sinalização</h2>
+        <p>Produção diária por mês ou no período total disponível.</p>
+      </div>
+
+      <canvas id="chartSettranDiario"></canvas>
+    </article>
+  </section>
+</section>
 
     <section id="panel-sesurb" class="panel">
       <section class="placeholder card">
