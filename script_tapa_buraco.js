@@ -11,6 +11,8 @@ const CONFIG = {
 const state = {
   resumo: [],
   geral: [],
+  rankingBairros: [],
+  rankingVias: [],
   charts: {}
 };
 
@@ -230,42 +232,60 @@ function processarResumo(linhas) {
 }
 
 function processarGeral(linhas) {
+  const idx = acharCabecalho(linhas, ['DATA', 'BAIRRO', 'LOGADOURO']);
+  const cabecalho = linhas[idx];
+  const dados = linhas.slice(idx + 1);
 
-  const rankingBairros = [];
-  const rankingVias = [];
+  const colData = indiceColuna(cabecalho, ['DATA'], 0);
+  const colBairro = indiceColuna(cabecalho, ['BAIRRO'], 1);
+  const colLogradouro = indiceColuna(cabecalho, ['LOGADOURO', 'LOGRADOURO'], 2);
+  const colArea = indiceColuna(cabecalho, ['AREA', 'ÁREA'], 3);
+  const colTon = indiceColuna(cabecalho, ['POR SERVICO', 'POR SERVIÇO'], 4);
 
-  // BAIRROS = G/H
+  state.geral = dados
+    .map(linha => {
+      const data = parseData(linha[colData]);
+
+      if (!data) return null;
+      if (data.getFullYear() !== CONFIG.anoBase) return null;
+
+      const bairro = String(linha[colBairro] || '').trim();
+      const logradouro = String(linha[colLogradouro] || '').trim();
+
+      if (!bairro && !logradouro) return null;
+
+      return {
+        data,
+        mes: chaveMes(data),
+        bairro,
+        logradouro,
+        area: parseNumero(linha[colArea]),
+        tonelagem: parseNumero(linha[colTon])
+      };
+    })
+    .filter(Boolean);
+
+  state.rankingBairros = [];
+  state.rankingVias = [];
+
   for (let i = 1; i <= 10; i++) {
-
     const linha = linhas[i];
-
     if (!linha) continue;
 
     const bairro = String(linha[6] || '').trim();
-    const qtd = parseNumero(linha[7]);
+    const qtdBairro = parseNumero(linha[7]);
 
     if (bairro) {
-      rankingBairros.push([bairro, qtd]);
+      state.rankingBairros.push([bairro, qtdBairro]);
     }
-  }
-
-  // VIAS = J/K
-  for (let i = 1; i <= 10; i++) {
-
-    const linha = linhas[i];
-
-    if (!linha) continue;
 
     const via = String(linha[9] || '').trim();
-    const qtd = parseNumero(linha[10]);
+    const qtdVia = parseNumero(linha[10]);
 
     if (via) {
-      rankingVias.push([via, qtd]);
+      state.rankingVias.push([via, qtdVia]);
     }
   }
-
-  state.rankingBairros = rankingBairros;
-  state.rankingVias = rankingVias;
 }
 
 function dadosDoMes(mesSelecionado) {
@@ -340,26 +360,40 @@ function renderGraficoDiario(mesSelecionado) {
   });
 }
 
-function gerarRanking() {
-  return [];
+function renderRanking(id, ranking) {
+  const tbody = $(id);
+  tbody.innerHTML = '';
+
+  if (!ranking.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="3" class="empty">Sem registros.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  ranking.forEach(([nome, total], i) => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${nome}</td>
+      <td>${formatNumber(total, 0)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
 }
 
 function renderTudo() {
-
   const mesSelecionado = $('tapaMonth').value;
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
 
-  renderRanking(
-    'rankVias',
-    state.rankingVias || []
-  );
-
-  renderRanking(
-    'rankBairros',
-    state.rankingBairros || []
-  );
+  renderRanking('rankVias', state.rankingVias);
+  renderRanking('rankBairros', state.rankingBairros);
 }
 
 function configurarEventos() {
