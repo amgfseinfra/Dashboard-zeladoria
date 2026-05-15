@@ -41,30 +41,30 @@ function parseCSV(texto) {
   const linhas = [];
   let linha = [];
   let campo = '';
-  let dentroAspas = false;
+  let aspas = false;
 
   for (let i = 0; i < texto.length; i++) {
-    const char = texto[i];
-    const prox = texto[i + 1];
+    const c = texto[i];
+    const n = texto[i + 1];
 
-    if (char === '"') {
-      if (dentroAspas && prox === '"') {
+    if (c === '"') {
+      if (aspas && n === '"') {
         campo += '"';
         i++;
       } else {
-        dentroAspas = !dentroAspas;
+        aspas = !aspas;
       }
-    } else if (char === ',' && !dentroAspas) {
+    } else if (c === ',' && !aspas) {
       linha.push(campo);
       campo = '';
-    } else if ((char === '\n' || char === '\r') && !dentroAspas) {
-      if (char === '\r' && prox === '\n') i++;
+    } else if ((c === '\n' || c === '\r') && !aspas) {
+      if (c === '\r' && n === '\n') i++;
       linha.push(campo);
       linhas.push(linha);
       linha = [];
       campo = '';
     } else {
-      campo += char;
+      campo += c;
     }
   }
 
@@ -75,23 +75,15 @@ function parseCSV(texto) {
 }
 
 async function fetchCSV(url) {
-  const resposta = await fetch(`${url}&cacheBust=${Date.now()}`, {
+  const resposta = await fetch(url + '&cacheBust=' + Date.now(), {
     cache: 'no-store'
   });
 
   if (!resposta.ok) {
-    throw new Error(`Erro ao carregar CSV: ${resposta.status}`);
+    throw new Error('Erro ao carregar CSV: ' + resposta.status);
   }
 
   return parseCSV(await resposta.text());
-}
-
-function limparTexto(valor) {
-  return String(valor ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toUpperCase();
 }
 
 function parseNumero(valor) {
@@ -101,23 +93,17 @@ function parseNumero(valor) {
 
   if (!texto || texto === '-') return 0;
 
-  texto = texto
-    .replace(/\s/g, '')
-    .replace(/[^0-9,.-]/g, '');
+  texto = texto.replace(/\s/g, '').replace(/[^0-9,.-]/g, '');
 
   if (!texto) return 0;
 
-  const temVirgula = texto.includes(',');
-  const temPonto = texto.includes('.');
-
-  if (temVirgula && temPonto) {
+  if (texto.includes(',') && texto.includes('.')) {
     texto = texto.replace(/,/g, '');
-  } else if (temVirgula && !temPonto) {
+  } else if (texto.includes(',') && !texto.includes('.')) {
     texto = texto.replace(',', '.');
   }
 
   const numero = Number(texto);
-
   return Number.isFinite(numero) ? numero : 0;
 }
 
@@ -125,13 +111,13 @@ function parseData(valor) {
   if (!valor) return null;
 
   const texto = String(valor).trim();
+  const partes = texto.split('/');
 
-  const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!match) return null;
+  if (partes.length !== 3) return null;
 
-  const mes = Number(match[1]);
-  const dia = Number(match[2]);
-  let ano = Number(match[3]);
+  const mes = Number(partes[0]);
+  const dia = Number(partes[1]);
+  let ano = Number(partes[2]);
 
   if (ano < 100) ano += 2000;
 
@@ -160,40 +146,25 @@ function diasNoMes(ano, mes) {
   return new Date(ano, mes, 0).getDate();
 }
 
-function encontrarLinhaCabecalho(linhas, palavras) {
-  for (let i = 0; i < linhas.length; i++) {
-    const linha = linhas[i].map(limparTexto).join(' | ');
-
-    const achou = palavras.every(palavra => linha.includes(limparTexto(palavra)));
-
-    if (achou) return i;
-  }
-
-  return 0;
-}
-
 function preencherSelectMeses() {
   const select = $('tapaMonth');
-  if (!select) return;
-
   select.innerHTML = '';
 
   for (let mes = 1; mes <= 12; mes++) {
     const valor = `${CONFIG.anoBase}-${String(mes).padStart(2, '0')}`;
     const texto = `${meses[mes - 1]} de ${CONFIG.anoBase}`;
-
     select.add(new Option(texto, valor));
   }
+
+  select.value = `${CONFIG.anoBase}-01`;
 }
 
 function processarResumo(linhas) {
-  const indiceCabecalho = encontrarLinhaCabecalho(linhas, ['DATA', 'TON TOTAL', 'BURACO']);
-  const dados = linhas.slice(indiceCabecalho + 1);
+  const dados = linhas.slice(1);
 
   state.resumo = dados
     .map(linha => {
       const data = parseData(linha[0]);
-
       if (!data) return null;
 
       return {
@@ -208,13 +179,11 @@ function processarResumo(linhas) {
 }
 
 function processarGeral(linhas) {
-  const indiceCabecalho = encontrarLinhaCabecalho(linhas, ['DATA', 'BAIRRO', 'LOGADOURO']);
-  const dados = linhas.slice(indiceCabecalho + 1);
+  const dados = linhas.slice(1);
 
   state.geral = dados
     .map(linha => {
       const data = parseData(linha[0]);
-
       if (!data) return null;
 
       return {
@@ -229,35 +198,35 @@ function processarGeral(linhas) {
     .filter(Boolean);
 }
 
-function renderKPIs(mesSelecionado) {
-  const linhaResumo = state.resumo.find(item => item.mes === mesSelecionado);
+function dadosDoMes(mesSelecionado) {
+  return state.geral.filter(item => item.mes === mesSelecionado);
+}
 
-  if (linhaResumo) {
-    $('tapaTon').textContent = `${formatNumber(linhaResumo.tonelagem, 2)} t`;
-    $('tapaArea').textContent = `${formatNumber(linhaResumo.area, 2)} m²`;
-    $('tapaBuracos').textContent = formatNumber(linhaResumo.buracos, 0);
+function renderKPIs(mesSelecionado) {
+  const resumo = state.resumo.find(item => item.mes === mesSelecionado);
+
+  if (!resumo) {
+    $('tapaTon').textContent = '-';
+    $('tapaArea').textContent = '-';
+    $('tapaBuracos').textContent = '-';
     return;
   }
 
-  $('tapaTon').textContent = '-';
-  $('tapaArea').textContent = '-';
-  $('tapaBuracos').textContent = '-';
-}
-
-function filtrarGeralPorMes(mesSelecionado) {
-  return state.geral.filter(item => item.mes === mesSelecionado);
+  $('tapaTon').textContent = `${formatNumber(resumo.tonelagem, 2)} t`;
+  $('tapaArea').textContent = `${formatNumber(resumo.area, 2)} m²`;
+  $('tapaBuracos').textContent = formatNumber(resumo.buracos, 0);
 }
 
 function renderGraficoDiario(mesSelecionado) {
   const [ano, mes] = mesSelecionado.split('-').map(Number);
   const totalDias = diasNoMes(ano, mes);
-  const dadosMes = filtrarGeralPorMes(mesSelecionado);
+  const dados = dadosDoMes(mesSelecionado);
 
-  const contagemPorDia = new Map();
+  const mapa = new Map();
 
-  dadosMes.forEach(item => {
+  dados.forEach(item => {
     const chave = chaveDia(item.data);
-    contagemPorDia.set(chave, (contagemPorDia.get(chave) || 0) + 1);
+    mapa.set(chave, (mapa.get(chave) || 0) + 1);
   });
 
   const labels = [];
@@ -265,31 +234,25 @@ function renderGraficoDiario(mesSelecionado) {
 
   for (let dia = 1; dia <= totalDias; dia++) {
     const data = new Date(ano, mes - 1, dia);
-
     labels.push(String(dia).padStart(2, '0'));
-    valores.push(contagemPorDia.get(chaveDia(data)) || 0);
+    valores.push(mapa.get(chaveDia(data)) || 0);
   }
-
-  const canvas = $('chartTapaDiario');
-  if (!canvas) return;
 
   if (state.charts.tapaDiario) {
     state.charts.tapaDiario.destroy();
   }
 
-  state.charts.tapaDiario = new Chart(canvas, {
+  state.charts.tapaDiario = new Chart($('chartTapaDiario'), {
     type: 'line',
     data: {
       labels,
-      datasets: [
-        {
-          label: 'Buracos tapados',
-          data: valores,
-          borderWidth: 3,
-          tension: 0.25,
-          pointRadius: 3
-        }
-      ]
+      datasets: [{
+        label: 'Buracos tapados',
+        data: valores,
+        borderWidth: 3,
+        tension: 0.25,
+        pointRadius: 3
+      }]
     },
     options: {
       responsive: true,
@@ -307,12 +270,11 @@ function renderGraficoDiario(mesSelecionado) {
 }
 
 function gerarRanking(campo, mesSelecionado) {
-  const dadosMes = filtrarGeralPorMes(mesSelecionado);
+  const dados = dadosDoMes(mesSelecionado);
   const mapa = new Map();
 
-  dadosMes.forEach(item => {
+  dados.forEach(item => {
     const nome = String(item[campo] || '').trim();
-
     if (!nome) return;
 
     mapa.set(nome, (mapa.get(nome) || 0) + 1);
@@ -323,10 +285,8 @@ function gerarRanking(campo, mesSelecionado) {
     .slice(0, 10);
 }
 
-function renderTabelaRanking(idTbody, ranking) {
-  const tbody = $(idTbody);
-  if (!tbody) return;
-
+function renderRanking(id, ranking) {
+  const tbody = $(id);
   tbody.innerHTML = '';
 
   if (!ranking.length) {
@@ -351,23 +311,19 @@ function renderTabelaRanking(idTbody, ranking) {
   });
 }
 
-function renderRankings(mesSelecionado) {
-  const rankingVias = gerarRanking('logradouro', mesSelecionado);
-  const rankingBairros = gerarRanking('bairro', mesSelecionado);
-
-  renderTabelaRanking('rankVias', rankingVias);
-  renderTabelaRanking('rankBairros', rankingBairros);
-}
-
-function renderTapaBuraco() {
+function renderTudo() {
   const mesSelecionado = $('tapaMonth').value;
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-  renderRankings(mesSelecionado);
+  renderRanking('rankVias', gerarRanking('logradouro', mesSelecionado));
+  renderRanking('rankBairros', gerarRanking('bairro', mesSelecionado));
 }
 
-function configurarAbas() {
+function configurarEventos() {
+  $('tapaMonth').addEventListener('change', renderTudo);
+  $('refreshTapa').addEventListener('click', renderTudo);
+
   document.querySelectorAll('.tab').forEach(botao => {
     botao.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -381,45 +337,30 @@ function configurarAbas() {
   });
 }
 
-function configurarEventosTapaBuraco() {
-  $('tapaMonth').addEventListener('change', renderTapaBuraco);
-  $('refreshTapa').addEventListener('click', renderTapaBuraco);
-}
-
-async function carregarTapaBuraco() {
-  setStatus('Carregando dados de tapa-buraco...');
-
-  const [csvResumo, csvGeral] = await Promise.all([
-    fetchCSV(CONFIG.urls.resumo),
-    fetchCSV(CONFIG.urls.geral)
-  ]);
-
-  processarResumo(csvResumo);
-  processarGeral(csvGeral);
-
-  preencherSelectMeses();
-
-  const mesesComResumo = state.resumo.map(item => item.mes);
-  const primeiroMesComDados = mesesComResumo[0] || `${CONFIG.anoBase}-01`;
-
-  $('tapaMonth').value = primeiroMesComDados;
-
-  renderTapaBuraco();
-
-  $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
-  setStatus('Dados de tapa-buraco carregados com sucesso.', 'ok');
-}
-
-async function iniciarDashboard() {
+async function iniciar() {
   try {
-    configurarAbas();
-    configurarEventosTapaBuraco();
+    setStatus('Carregando dados de tapa-buraco...');
 
-    await carregarTapaBuraco();
+    configurarEventos();
+
+    const [resumoCSV, geralCSV] = await Promise.all([
+      fetchCSV(CONFIG.urls.resumoTon),
+      fetchCSV(CONFIG.urls.geral)
+    ]);
+
+    processarResumo(resumoCSV);
+    processarGeral(geralCSV);
+
+    preencherSelectMeses();
+    renderTudo();
+
+    $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
+    setStatus('Dados carregados com sucesso.', 'ok');
+
   } catch (erro) {
     console.error(erro);
-    setStatus(`Erro ao carregar dados: ${erro.message}`, 'err');
+    setStatus('Erro ao carregar dados: ' + erro.message, 'err');
   }
 }
 
-document.addEventListener('DOMContentLoaded', iniciarDashboard);
+document.addEventListener('DOMContentLoaded', iniciar);
