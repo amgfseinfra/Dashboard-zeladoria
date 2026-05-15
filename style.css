@@ -264,3 +264,44 @@ td:last-child, th:last-child { text-align: right; }
 
   .update-box { min-width: 100%; }
 }
+.mini-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mini-form label {
+  font-size: 12px;
+}
+
+.mini-form input {
+  margin-top: 6px;
+}
+
+.settran-need-card strong {
+  font-size: 26px;
+}
+
+.analysis-note {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.analysis-note.alert {
+  color: var(--error);
+  font-weight: 800;
+}
+
+.analysis-note.ok {
+  color: var(--success);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .mini-form {
+    grid-template-columns: 1fr;
+  }
+}
