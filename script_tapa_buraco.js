@@ -115,26 +115,12 @@ function normalizarTexto(valor) {
     .toUpperCase();
 }
 
-function parseMesResumo(valor) {
-  const numero = Number(String(valor ?? '').trim());
-
-  if (Number.isFinite(numero) && numero >= 1 && numero <= 12) {
-    return `${CONFIG.anoBase}-${String(numero).padStart(2, '0')}`;
-  }
-
-  const data = parseData(valor);
-
-  if (data) return chaveMes(data);
-
-  return null;
-}
-
 function parseData(valor) {
   if (!valor) return null;
 
   const texto = String(valor).trim();
-
   const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+
   if (!match) return null;
 
   const mes = Number(match[1]);
@@ -154,6 +140,20 @@ function parseData(valor) {
   }
 
   return data;
+}
+
+function parseMesResumo(valor) {
+  const numero = Number(String(valor ?? '').trim());
+
+  if (Number.isFinite(numero) && numero >= 1 && numero <= 12) {
+    return `${CONFIG.anoBase}-${String(numero).padStart(2, '0')}`;
+  }
+
+  const data = parseData(valor);
+
+  if (data) return chaveMes(data);
+
+  return null;
 }
 
 function chaveMes(data) {
@@ -249,16 +249,11 @@ function processarGeral(linhas) {
       if (!data) return null;
       if (data.getFullYear() !== CONFIG.anoBase) return null;
 
-      const bairro = String(linha[colBairro] || '').trim();
-      const logradouro = String(linha[colLogradouro] || '').trim();
-
-      if (!bairro && !logradouro) return null;
-
       return {
         data,
         mes: chaveMes(data),
-        bairro,
-        logradouro,
+        bairro: String(linha[colBairro] || '').trim(),
+        logradouro: String(linha[colLogradouro] || '').trim(),
         area: parseNumero(linha[colArea]),
         tonelagem: parseNumero(linha[colTon])
       };
@@ -329,11 +324,15 @@ function renderGraficoDiario(mesSelecionado) {
     valores.push(mapa.get(chaveDia(data)) || 0);
   }
 
+  const canvas = $('chartTapaDiario');
+
+  if (!canvas) return;
+
   if (state.charts.tapaDiario) {
     state.charts.tapaDiario.destroy();
   }
 
-  state.charts.tapaDiario = new Chart($('chartTapaDiario'), {
+  state.charts.tapaDiario = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
@@ -362,9 +361,11 @@ function renderGraficoDiario(mesSelecionado) {
 
 function renderRanking(id, ranking) {
   const tbody = $(id);
+  if (!tbody) return;
+
   tbody.innerHTML = '';
 
-  if (!ranking.length) {
+  if (!ranking || !ranking.length) {
     tbody.innerHTML = `
       <tr>
         <td colspan="3" class="empty">Sem registros.</td>
@@ -386,12 +387,15 @@ function renderRanking(id, ranking) {
   });
 }
 
+function renderTabelaRanking(id, ranking) {
+  renderRanking(id, ranking);
+}
+
 function renderTudo() {
   const mesSelecionado = $('tapaMonth').value;
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
-
   renderRanking('rankVias', state.rankingVias);
   renderRanking('rankBairros', state.rankingBairros);
 }
@@ -432,6 +436,7 @@ async function iniciar() {
 
     $('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
     setStatus('Dados carregados com sucesso.', 'ok');
+
   } catch (erro) {
     console.error(erro);
     setStatus('Erro ao carregar dados: ' + erro.message, 'err');
