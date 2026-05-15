@@ -135,28 +135,11 @@ function parseData(valor) {
   const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (!match) return null;
 
-  const parte1 = Number(match[1]);
-  const parte2 = Number(match[2]);
+  const mes = Number(match[1]);
+  const dia = Number(match[2]);
   let ano = Number(match[3]);
 
   if (ano < 100) ano += 2000;
-
-  let mes;
-  let dia;
-
-  // A planilha GERAL está vindo no padrão DIA/MÊS/ANO pelo CSV publicado.
-  // Exemplo: 15/01/2026 = 15 de janeiro.
-  if (parte1 > 12) {
-    dia = parte1;
-    mes = parte2;
-  } else if (parte2 > 12) {
-    mes = parte1;
-    dia = parte2;
-  } else {
-    // Quando é ambíguo, segue a orientação original: MÊS/DIA/ANO.
-    mes = parte1;
-    dia = parte2;
-  }
 
   const data = new Date(ano, mes - 1, dia);
 
@@ -262,22 +245,25 @@ function processarGeral(linhas) {
       const data = parseData(linha[colData]);
 
       if (!data) return null;
+      if (data.getFullYear() !== CONFIG.anoBase) return null;
 
-      const ano = data.getFullYear();
-      const mesNumero = data.getMonth() + 1;
+      const bairro = String(linha[colBairro] || '').trim();
+      const logradouro = String(linha[colLogradouro] || '').trim();
 
-      if (ano !== CONFIG.anoBase) return null;
+      if (!bairro && !logradouro) return null;
 
       return {
         data,
-        mes: `${ano}-${String(mesNumero).padStart(2, '0')}`,
-        bairro: String(linha[colBairro] || '').trim(),
-        logradouro: String(linha[colLogradouro] || '').trim(),
+        mes: chaveMes(data),
+        bairro,
+        logradouro,
         area: parseNumero(linha[colArea]),
         tonelagem: parseNumero(linha[colTon])
       };
     })
     .filter(Boolean);
+
+  console.log('TOTAL GERAL PROCESSADO:', state.geral.length);
 }
 
 function dadosDoMes(mesSelecionado) {
@@ -355,15 +341,17 @@ function renderGraficoDiario(mesSelecionado) {
 function gerarRanking(campo, mesSelecionado) {
   const mapa = new Map();
 
-  dadosDoMes(mesSelecionado).forEach(item => {
-    const nome = String(item[campo] || '').trim();
+  state.geral
+    .filter(item => item.mes === mesSelecionado)
+    .forEach(item => {
+      const nome = String(item[campo] || '').trim();
 
-    if (!nome) return;
+      if (!nome) return;
 
-    mapa.set(nome, (mapa.get(nome) || 0) + 1);
-  });
+      mapa.set(nome, (mapa.get(nome) || 0) + 1);
+    });
 
-  return [...mapa.entries()]
+  return Array.from(mapa.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 }
@@ -396,6 +384,12 @@ function renderRanking(id, ranking) {
 
 function renderTudo() {
   const mesSelecionado = $('tapaMonth').value;
+  const registrosMes = state.geral.filter(item => item.mes === mesSelecionado);
+
+  console.log('MÊS SELECIONADO:', mesSelecionado);
+  console.log('REGISTROS DO MÊS:', registrosMes.length);
+  console.log('RANKING VIAS:', gerarRanking('logradouro', mesSelecionado));
+  console.log('RANKING BAIRROS:', gerarRanking('bairro', mesSelecionado));
 
   renderKPIs(mesSelecionado);
   renderGraficoDiario(mesSelecionado);
